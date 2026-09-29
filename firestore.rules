@@ -1,0 +1,17 @@
+rules_version = '2';
+// Only the Google accounts listed below can read or write any data.
+// To give a sales rep access, add their Google email to the list and click Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'your.email@gmail.com'
+        ];
+    }
+    match /{document=**} {
+      allow read, write: if allowed();
+    }
+  }
+}

@@ -1,0 +1,710 @@
+<title>Promo Sales Navigator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky top bar with tabs; filter row, KPI strip, two charts side by side, breakdown tables. Orders = searchable log + slide-over form. */
+:root{
+  --bg:#f3f4f2; --surface:#fcfcfb; --surface-2:#eef0ed; --ink:#14171a; --ink-2:#4f555b; --muted:#80868c;
+  --line:#e0e2dd; --line-strong:#c6c9c2; --accent:#155e63; --accent-ink:#ffffff; --accent-soft:#dcecec;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  --good:#0ca30c; --good-ink:#006300; --warn:#b57a00; --crit:#d03b3b; --good-soft:#e3f3e3; --warn-soft:#fbf0d6; --crit-soft:#fae3e3; --info-soft:#e2ecf8; --info-ink:#1c5cab;
+  --grid:#e5e6e1; --axis:#c3c2b7;
+  --f-display:"Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1112; --surface:#1a1c1d; --surface-2:#232628; --ink:#f4f5f3; --ink-2:#c3c6c2; --muted:#8d928f;
+  --line:#2c2f30; --line-strong:#3d4143; --accent:#4fb3b3; --accent-ink:#0b1414; --accent-soft:#17312f;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --good-ink:#3ec43e; --warn:#fab219; --crit:#e66767; --good-soft:#15291a; --warn-soft:#2f2612; --crit-soft:#331b1b; --info-soft:#15243a; --info-ink:#86b6ef;
+  --grid:#2a2c2c; --axis:#3d4040; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1112; --surface:#1a1c1d; --surface-2:#232628; --ink:#f4f5f3; --ink-2:#c3c6c2; --muted:#8d928f;
+  --line:#2c2f30; --line-strong:#3d4143; --accent:#4fb3b3; --accent-ink:#0b1414; --accent-soft:#17312f;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --good-ink:#3ec43e; --warn:#fab219; --crit:#e66767; --good-soft:#15291a; --warn-soft:#2f2612; --crit-soft:#331b1b; --info-soft:#15243a; --info-ink:#86b6ef;
+  --grid:#2a2c2c; --axis:#3d4040; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:20px;padding-block:0 48px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in{max-width:1280px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-family:var(--f-display);font-size:20px;margin:0;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:9px}
+.tabs button{border:0;background:transparent;padding:6px 14px;border-radius:7px;cursor:pointer;font-weight:600;color:var(--ink-2)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.btn{border:1px solid var(--line-strong);background:var(--surface);padding:7px 13px;border-radius:8px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding-block:18px 14px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>label,.lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=tel],input[type=search],textarea{
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px;min-width:0;width:100%}
+textarea{resize:vertical;min-height:60px}
+.filters select{min-width:130px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface);flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer;font-weight:600;color:var(--ink-2);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink)}
+.spacer{flex:1}
+.note{color:var(--muted);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.kpi .s{font-size:12px;color:var(--ink-2)}
+.kpi[data-m]:hover{border-color:var(--line-strong)}
+.kpi.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-top:12px}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.card h2{font-size:15px;margin:0 0 2px;font-weight:700}
+.card .sub{color:var(--muted);font-size:12px;margin-bottom:10px}
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;overflow:visible}
+.chart text{fill:var(--muted);font-size:11px;font-family:var(--f-body)}
+.chart .vlab{fill:var(--ink-2);font-size:11px;font-weight:600}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.4;white-space:nowrap;z-index:5;transform:translate(-50%,calc(-100% - 10px))}
+.tip b{font-weight:700}
+.tip[hidden]{display:none}
+.tbl-wrap{overflow-x:auto;margin-top:4px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+td.n,th.n{text-align:right}
+tr.tot td{font-weight:700;border-top:1px solid var(--line-strong);border-bottom:0}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--surface-2)}
+.neg{color:var(--crit)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface-2);color:var(--ink-2)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.good{background:var(--good-soft);color:var(--good-ink)}
+.pill.info{background:var(--info-soft);color:var(--info-ink)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:6px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding-block:18px 12px}
+.toolbar .field{flex:1 1 220px;max-width:340px}
+.banner{background:var(--warn-soft);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.banner p{margin:0;flex:1 1 260px}
+.empty{padding:40px 16px;text-align:center;color:var(--ink-2)}
+.empty h3{font-family:var(--f-display);font-size:18px;margin:0 0 6px;color:var(--ink)}
+/* drawer */
+.overlay{position:fixed;inset:0;background:rgba(10,12,14,.45);z-index:40;display:flex;justify-content:flex-end}
+.drawer{background:var(--bg);width:min(760px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.2)}
+.drawer-h{display:flex;align-items:center;gap:10px;padding:14px 20px;padding-top:calc(14px + env(safe-area-inset-top,0px));border-bottom:1px solid var(--line);background:var(--surface)}
+.drawer-h h2{font-family:var(--f-display);font-size:18px;margin:0;margin-right:auto}
+.drawer-b{overflow-y:auto;padding:16px 20px 24px;flex:1}
+.drawer-f{display:flex;gap:10px;padding:12px 20px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+fieldset{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin:0 0 12px;padding:12px 14px 14px}
+legend{font-weight:700;font-size:13px;padding:0 6px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 12px}
+.fgrid .wide{grid-column:1/-1}
+.new-flag{color:var(--accent);font-weight:700;margin-left:4px;letter-spacing:0}
+.calc{background:var(--surface-2);border:1px dashed var(--line-strong);border-radius:8px;padding:7px 10px;font-weight:600;font-variant-numeric:tabular-nums;min-height:35px}
+.pnl{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.pnl div{background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.pnl .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.pnl .x{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;padding-block:18px}
+.rep-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.rep-row input{flex:1}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;z-index:60;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink-2);margin-bottom:6px}
+.colmap{font-size:12px;color:var(--ink-2)}
+.colmap code{background:var(--surface-2);padding:1px 5px;border-radius:4px}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(30px);opacity:.6}}}
+.pair{display:flex;gap:6px}
+.pair select{width:auto;flex:0 0 64px}
+.pair input{flex:1}
+.hintline{font-size:11px;color:var(--muted);margin-top:2px}
+.ordhead td{background:var(--surface-2);font-weight:600}
+.subline td:first-child{padding-left:22px}
+</style>
+
+<header class="top"><div class="top-in">
+  <div class="brand"><h1>Sales Navigator</h1><span>Promotional products</span></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-dash" aria-selected="true" data-tab="dash">Dashboard</button>
+    <button role="tab" id="tab-orders" aria-selected="false" data-tab="orders">Orders</button>
+    <button role="tab" id="tab-settings" aria-selected="false" data-tab="settings">Settings</button>
+  </nav>
+  <button class="btn primary" id="btn-new">+ New order</button>
+</div></header>
+
+<main class="wrap">
+  <div id="status-banner"></div>
+
+  <!-- DASHBOARD -->
+  <section id="view-dash">
+    <div class="filters">
+      <div class="field"><label for="f-year">Year</label><select id="f-year"></select></div>
+      <div class="field"><label for="f-month">Month</label><select id="f-month"></select></div>
+      <div class="field"><label for="f-rep">Sales rep</label><select id="f-rep"></select></div>
+      <div class="field"><span class="lbl">Show charts by</span>
+        <div class="seg" id="metric-seg">
+          <button data-m="sales" aria-pressed="true">Sales $</button>
+          <button data-m="orders" aria-pressed="false">Orders</button>
+          <button data-m="gross" aria-pressed="false">Gross profit</button>
+          <button data-m="net" aria-pressed="false">Net profit</button>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <span class="note" id="count-note"></span>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card"><h2 id="trend-title">Sales by month</h2><div class="sub" id="trend-sub"></div><div class="chart" id="trend"></div></div>
+      <div class="card"><h2 id="rep-title">Sales by rep</h2><div class="sub" id="rep-sub"></div><div class="chart" id="repchart"></div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><h2>Sales rep scorecard</h2><div class="sub" id="score-sub"></div><div class="tbl-wrap"><table id="score"></table></div></div>
+    <div class="card" style="margin-top:12px"><h2>Monthly breakdown</h2><div class="sub" id="bd-sub"></div><div class="tbl-wrap"><table id="breakdown"></table></div></div>
+  </section>
+
+  <!-- ORDERS -->
+  <section id="view-orders" hidden>
+    <div class="toolbar">
+      <div class="field"><label for="o-search">Search</label><input type="search" id="o-search" placeholder="Order #, client, company, product"></div>
+      <div class="field" style="flex:0 1 150px"><label for="o-status">Status</label><select id="o-status"></select></div>
+      <div class="field" style="flex:0 1 150px"><label for="o-rep">Sales rep</label><select id="o-rep"></select></div>
+      <div class="field" style="flex:0 0 auto"><span class="lbl">View</span><div class="seg" id="o-view"><button data-v="orders" aria-pressed="true">By order</button><button data-v="lines" aria-pressed="false">By product line</button></div></div>
+      <div class="spacer"></div>
+      <button class="btn" id="btn-import">Import CSV</button>
+      <input type="file" id="file-import" accept=".csv,text/csv" hidden>
+      <button class="btn" id="btn-export">Export CSV</button>
+    </div>
+    <div class="card" style="padding:0"><div class="tbl-wrap" style="margin:0"><table id="orders-tbl"></table></div></div>
+    <p class="note" style="margin-top:10px">One row in your sheet = one product line. Lines that share an Order # count as one order. Import accepts a CSV downloaded from Google Sheets (File → Download → CSV); columns are matched by header name.</p>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="view-settings" hidden>
+    <div class="settings">
+      <div class="card"><h2>Sales reps</h2><div class="sub">Names shown in filters and the order form. Renaming a rep updates their existing orders.</div>
+        <div id="rep-list"></div>
+        <button class="btn" id="btn-add-rep">+ Add rep</button>
+      </div>
+      <div class="card"><h2>Defaults for new lines</h2><div class="sub">Used when a line leaves the field blank. Each line can override them.</div>
+        <div class="fgrid" style="grid-template-columns:1fr 1fr">
+          <div class="field"><label for="st-suptax">Tax % to supplier</label><input type="number" step="0.01" id="st-suptax"></div>
+          <div class="field"><label for="st-custax">Tax % customer pays</label><input type="number" step="0.01" id="st-custax"></div>
+          <div class="field"><label for="st-fee">Payment platform fee %</label><input type="number" step="0.01" id="st-fee"></div>
+          <div class="field"><label for="st-feeon">Fee applies to</label><select id="st-feeon"><option value="card">Card platforms only (Stripe, PayPal, Square)</option><option value="all">All payment platforms</option></select></div>
+        </div>
+        <p class="note" style="margin:10px 0 0">Sales rep commission is a $ amount entered on each line.</p>
+      </div>
+      <div class="card"><h2>Taxes in net profit</h2><div class="sub">How taxes affect the amount the company keeps. Tax paid to suppliers is a cost and is not claimed back.</div>
+        <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="st-remit"> <span><b>Customer tax is paid over to the government.</b><br><span class="note">Deducts the tax the customer paid from net profit.</span></span></label>
+      </div>
+      <div class="card"><h2>Counted in sales</h2><div class="sub">Order statuses included in dashboard totals.</div><div id="st-statuses"></div></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" id="btn-save-settings">Save settings</button></div>
+    <div class="card" style="margin-top:16px"><h2>How profit is calculated</h2><div class="colmap" id="formula"></div></div>
+  </section>
+</main>
+
+<div id="drawer-root"></div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_L=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const STATUSES=["Quote","Pending","Ordered","In Production","Shipped","Delivered","Cancelled"];
+const STATUS_CLS={"Quote":"","Pending":"warn","Ordered":"info","In Production":"info","Shipped":"info","Delivered":"good","Cancelled":"crit"};
+const CARD_PLATFORMS=["Stripe","PayPal","Square","Shopify Payments"];
+const DEFAULT_SETTINGS={reps:["Rep 1","Rep 2","Rep 3"],supplierTaxPct:0,customerTaxPct:0,platformFeePct:2.9,feeOn:"card",
+  deductCustomerTax:true,countStatuses:["Pending","Ordered","In Production","Shipped","Delivered"]};
+
+/* Field list. order:true = shared by every product line in the same Order #.
+   al = other header names accepted on import (your original sheet's columns). */
+const F=[
+ {s:"Order",k:"priority",l:"Priority",t:"select",o:["Normal","High","Rush","Low"],order:true},
+ {s:"Order",k:"orderNumber",l:"Order #",order:true,al:["Order#","Order Number","Invoice #"]},
+ {s:"Order",k:"status",l:"Status",t:"select",o:STATUSES,order:true},
+ {s:"Order",k:"salesRep",l:"Sales Rep",t:"rep",order:true},
+ {s:"Order",k:"orderDate",l:"Order Date",t:"date",order:true},
+ {s:"Order",k:"inHandsDate",l:"In-Hands Date",t:"date",order:true},
+ {s:"Order",k:"poNumber",l:"Client PO #",order:true,al:["PO #"]},
+ {s:"Order",k:"cac",l:"Customer Acquisition Channel",t:"select",o:["","Referral","Repeat client","Website","Cold outreach","LinkedIn","Email campaign","Trade show","Other"],order:true,al:["Customer Acquisition Channel (CAC)"]},
+ {s:"Client",k:"clientName",l:"Client Name",order:true},
+ {s:"Client",k:"clientTitle",l:"Client Designation",order:true,al:["Client Title"]},
+ {s:"Client",k:"companyName",l:"Client Company",order:true,al:["Company Name"]},
+ {s:"Client",k:"clientEmail",l:"Client Email",t:"email",order:true},
+ {s:"Client",k:"clientPhone",l:"Client Phone",t:"tel",order:true,al:["Client Phone #"]},
+ {s:"Supplier",k:"supplierName",l:"Supplier Company",al:["Supplier Name"]},
+ {s:"Supplier",k:"supplierContactName",l:"Supplier Rep",al:["Supplier Contact #1 Name"]},
+ {s:"Supplier",k:"supplierContactEmail",l:"Supplier Email",t:"email",al:["Supplier Contact #1 Email"]},
+ {s:"Supplier",k:"supplierContactPhone",l:"Supplier Phone",t:"tel",al:["Supplier Contact #1 Phone number"]},
+ {s:"Product",k:"productName",l:"Product Name",wide:true,al:["(Final) Product Name"]},
+ {s:"Product",k:"supplierItem",l:"Product ID from Supplier",al:["Supplier Item#"]},
+ {s:"Product",k:"websiteItem",l:"Product ID at Our Website",al:["Website Item#"]},
+ {s:"Product",k:"quantity",l:"Number of Items",t:"num",al:["Quantity"]},
+ {s:"Product",k:"productCategory",l:"Product Category",t:"select",o:["","Apparel","Headwear","Drinkware","Bags","Writing","Tech","Office","Signage & Displays","Print","Outdoor","Other"]},
+ {s:"Product",k:"decorationMethod",l:"Decoration Method",t:"select",o:["","Screen print","Embroidery","Laser engraving","Pad print","DTF transfer","Sublimation","Full-color digital","Deboss/Emboss","Other"]},
+ {s:"Costs",k:"unitCost",l:"Item Cost (per unit)",t:"money",al:["Unit Cost NET"]},
+ {s:"Costs",k:"setupCost",l:"Setup Cost",t:"money",al:["Setup Cost NET"]},
+ {s:"Costs",k:"unitRunCharges",l:"Running Charge (per unit)",t:"money",al:["Unit Run Charges NET"]},
+ {s:"Costs",k:"refundFee",l:"Refund (if any)",t:"money",hint:"Only counted when the order status is Cancelled",al:["Refund/Restocking Fee (if any)"]},
+ {s:"Costs",k:"shippingCost",l:"Shipping Charge",t:"money",al:["Shipping Cost NET"]},
+ {s:"Costs",k:"otherCosts",l:"Other Costs",t:"money",hint:"Samples, PMS match, customs/duty, supplier fees"},
+ {s:"Costs",k:"costPerUnit",l:"Total Cost per Unit",t:"calc",fmt:"money2",hint:"Before tax and fees"},
+ {s:"Costs",k:"supplierTaxPct",l:"Tax % to Supplier",t:"num",auto:"supTaxPct"},
+ {s:"Costs",k:"supplierTax",l:"Tax to Supplier $",t:"calc",fmt:"money2"},
+ {s:"Costs",k:"commissionValue",l:"Sales Rep Commission $",t:"money",hint:"Entered manually · lowers net profit only",al:["Sales Rep Commission Value","Sales Rep Commission"]},
+ {s:"Costs",k:"paymentPlatform",l:"Payment Platform",t:"select",o:["","Stripe","PayPal","Square","Shopify Payments","ACH / bank transfer","Check","E-transfer","Cash","Other"],order:true},
+ {s:"Costs",k:"platformFee",l:"Payment Platform Fee",t:"pair"},
+ {s:"Costs",k:"totalCost",l:"Total Cost",t:"calc",fmt:"money2",hint:"Excludes rep commission and platform fee"},
+ {s:"Price",k:"customerUnitPrice",l:"Price per Unit",t:"money",al:["Customer Unit Price (All-in)"]},
+ {s:"Price",k:"customerTaxPct",l:"Tax % Customer Pays",t:"num",auto:"cusTaxPct"},
+ {s:"Price",k:"customerTax",l:"Tax Customer Pays $",t:"calc",fmt:"money2"},
+ {s:"Price",k:"totalPrice",l:"Total Price",t:"calc",fmt:"money2",hint:"Price × items + tax"},
+ {s:"Price",k:"grossPnL",l:"Gross Profit",t:"calc",fmt:"money2",hint:"Total price − total cost"},
+ {s:"Price",k:"grossMargin",l:"Gross Margin %",t:"calc",fmt:"pct"},
+ {s:"Price",k:"netPnL",l:"Net Profit",t:"calc",fmt:"money2",hint:"What the company keeps"},
+ {s:"Price",k:"netMargin",l:"Net Margin %",t:"calc",fmt:"pct"},
+ {s:"Payment & delivery",k:"invoicePaidDate",l:"Date Invoice Paid by Client",t:"date",order:true,al:["Date Invoice paid by client"]},
+ {s:"Payment & delivery",k:"poPaidDate",l:"Date PO Paid to Supplier",t:"date",al:["Date PO paid by Aurora"]},
+ {s:"Payment & delivery",k:"shippingCompany",l:"Shipping Company",t:"select",o:["","UPS","FedEx","USPS","DHL","Canada Post","Purolator","Freight / LTL","Local pickup","Other"]},
+ {s:"Payment & delivery",k:"trackingNumber",l:"Tracking Number"},
+ {s:"Payment & delivery",k:"deliveryAddress",l:"Delivery Address",t:"area",wide:true,order:true},
+ {s:"Payment & delivery",k:"shippedDate",l:"Shipped Date",t:"date"},
+ {s:"Payment & delivery",k:"deliveryDate",l:"Delivery Date",t:"date"},
+ {s:"Payment & delivery",k:"orderTimeline",l:"Days from Order to Delivery",t:"calc",fmt:"days"},
+ {s:"Payment & delivery",k:"inHandsAchieved",l:"In-Hands Date Achieved?",t:"select",o:["Auto","Yes","No"],al:["In-hands date acheived?"]},
+ {s:"Payment & delivery",k:"notes",l:"Notes",t:"area",wide:true},
+];
+const FK=Object.fromEntries(F.map(f=>[f.k,f]));
+const NUMERIC=new Set([...F.filter(f=>f.t==="money"||f.t==="num").map(f=>f.k),"platformFeeValue"]);
+const ORDER_KEYS=F.filter(f=>f.order).map(f=>f.k);
+const EXPORT_COLS=[];F.forEach(f=>{if(f.t==="pair"){EXPORT_COLS.push({k:f.k+"Type",l:f.l+" Type ($ or %)"},{k:f.k+"Value",l:f.l+" Value"},{k:f.k+"$",l:f.l+" $",calc:f.k})}else EXPORT_COLS.push({k:f.k,l:f.l,calc:f.t==="calc"?f.k:null})});
+
+// ---------- state ----------
+let db=null,S=structuredClone(DEFAULT_SETTINGS);
+let ORDERS=[],loaded=false,dbState="loading";
+const ui={tab:"dash",year:String(new Date().getFullYear()),month:"all",rep:"all",metric:"sales",search:"",ostatus:"all",orep:"all",oview:"orders"};
+try{Object.assign(ui,JSON.parse(localStorage.getItem("sn-ui2")||"{}"))}catch(e){}
+function saveUi(){try{localStorage.setItem("sn-ui2",JSON.stringify(ui))}catch(e){}}
+
+// ---------- helpers ----------
+const $=s=>document.querySelector(s);
+const has=v=>v!==undefined&&v!==null&&v!=="";
+const num=v=>{if(!has(v))return 0;const n=typeof v==="number"?v:parseFloat(String(v).replace(/[$,%\s]/g,""));return isFinite(n)?n:0};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fm0=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
+const fm2=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});
+const fint=new Intl.NumberFormat("en-US");
+const money=v=>fm0.format(Math.round(v)),money2=v=>fm2.format(v);
+const pct=v=>isFinite(v)?(v*100).toFixed(1)+"%":"—";
+function compact(v){const a=Math.abs(v),sg=v<0?"-":"";if(a>=1e6)return sg+"$"+(a/1e6).toFixed(a>=1e7?0:1)+"M";if(a>=1e3)return sg+"$"+(a/1e3).toFixed(a>=1e5?0:1)+"k";return sg+"$"+Math.round(a)}
+function dayDiff(a,b){const d1=Date.parse(a),d2=Date.parse(b);return isNaN(d1)||isNaN(d2)?null:Math.round((d2-d1)/864e5)}
+function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+const repColor=name=>{const i=S.reps.indexOf(name);return i<0?"var(--muted)":`var(--s${(i%8)+1})`};
+const orderKey=o=>has(o.orderNumber)?String(o.orderNumber).trim().toUpperCase():"_"+o._id;
+const uniqOrders=list=>new Set(list.map(orderKey)).size;
+
+function calc(o){
+  const q=num(o.quantity);
+  const productCost=(num(o.unitCost)+num(o.unitRunCharges))*q;
+  const extras=num(o.setupCost)+num(o.shippingCost)+num(o.otherCosts);
+  const base=productCost+extras;
+  const costPerUnit=q?base/q:0;
+  const supTaxPct=has(o.supplierTaxPct)?num(o.supplierTaxPct):num(S.supplierTaxPct);
+  const supplierTax=base*supTaxPct/100;
+  const subtotal=num(o.customerUnitPrice)*q;
+  const cusTaxPct=has(o.customerTaxPct)?num(o.customerTaxPct):num(S.customerTaxPct);
+  const customerTax=subtotal*cusTaxPct/100;
+  const totalPrice=subtotal+customerTax;
+  // payment platform fee
+  const feeType=o.platformFeeType||"%";
+  let feeAuto=0; const feeApplies=S.feeOn==="all"?has(o.paymentPlatform):CARD_PLATFORMS.includes(o.paymentPlatform);
+  if(feeApplies)feeAuto=num(S.platformFeePct);
+  const feeVal=has(o.platformFeeValue)?num(o.platformFeeValue):(feeType==="%"?feeAuto:0);
+  const platformFee=feeType==="$"?feeVal:totalPrice*feeVal/100;
+  // a refund only happens when the client cancels; on any other status it is ignored
+  const refund=o.status==="Cancelled"?num(o.refundFee):0;
+  // platform fee and rep commission are not costs for gross profit; they only lower net profit
+  const totalCost=base+supplierTax+refund;
+  const grossPnL=totalPrice-totalCost;
+  const commission=num(o.commissionValue);
+  const taxAdj=S.deductCustomerTax?customerTax:0;
+  const netPnL=grossPnL-commission-platformFee-taxAdj;
+  const orderTimeline=(has(o.orderDate)&&has(o.deliveryDate))?dayDiff(o.orderDate,o.deliveryDate):null;
+  let onTime=null;
+  if(o.inHandsAchieved==="Yes")onTime=true;else if(o.inHandsAchieved==="No")onTime=false;
+  else if(has(o.deliveryDate)&&has(o.inHandsDate))onTime=o.deliveryDate<=o.inHandsDate;
+  return {q,base,costPerUnit,supTaxPct,supplierTax,subtotal,cusTaxPct,customerTax,totalPrice,feeType,feeVal,feeAuto,platformFee,refund,totalCost,grossPnL,
+    grossMargin:totalPrice?grossPnL/totalPrice:NaN,commission,taxAdj,netPnL,netMargin:totalPrice?netPnL/totalPrice:NaN,orderTimeline,onTime};
+}
+const ym=o=>{const d=o.orderDate||"";return {y:d.slice(0,4),m:d.length>=7?parseInt(d.slice(5,7),10):null}};
+const counted=o=>S.countStatuses.includes(o.status||"Pending");
+
+function agg(list){
+  const a={sales:0,lines:list.length,gross:0,net:0,cost:0,comm:0,fee:0,tax:0,ctax:0,onT:0,onN:0,days:0,dayN:0};
+  const ordersOn={};
+  for(const o of list){const c=o._c;a.sales+=c.totalPrice;a.gross+=c.grossPnL;a.net+=c.netPnL;a.cost+=c.totalCost;a.comm+=c.commission;a.fee+=c.platformFee;a.tax+=c.taxAdj;a.ctax+=c.customerTax;
+    const k=orderKey(o);if(c.onTime!==null){ordersOn[k]=ordersOn[k]===false?false:c.onTime} if(c.orderTimeline!==null){a.days+=c.orderTimeline;a.dayN++}}
+  Object.values(ordersOn).forEach(v=>{a.onN++;if(v)a.onT++});
+  a.orders=uniqOrders(list);a.gm=a.sales?a.gross/a.sales:NaN;a.nm=a.sales?a.net/a.sales:NaN;a.aov=a.orders?a.sales/a.orders:0;return a;
+}
+const METRIC={sales:{l:"Sales",c:compact},orders:{l:"Orders",c:v=>fint.format(v)},gross:{l:"Gross profit",c:compact},net:{l:"Net profit",c:compact}};
+
+// ---------- filters ----------
+function years(){const s=new Set(ORDERS.map(o=>ym(o).y).filter(Boolean));s.add(String(new Date().getFullYear()));return [...s].sort().reverse()}
+function fillSelect(el,opts,val){el.innerHTML=opts.map(([v,l])=>`<option value="${esc(v)}"${String(v)===String(val)?" selected":""}>${esc(l)}</option>`).join("")}
+function allReps(){const s=[...S.reps];ORDERS.forEach(o=>{if(o.salesRep&&!s.includes(o.salesRep))s.push(o.salesRep)});return s}
+function renderFilters(){
+  const ys=years();if(ui.year!=="all"&&!ys.includes(ui.year))ui.year="all";
+  fillSelect($("#f-year"),[["all","All years"],...ys.map(y=>[y,y])],ui.year);
+  fillSelect($("#f-month"),[["all","All months"],...MONTHS_L.map((m,i)=>[i+1,m])],ui.month);
+  const reps=allReps(),un=ORDERS.some(o=>!o.salesRep)?[["__none","Unassigned"]]:[];
+  fillSelect($("#f-rep"),[["all","All reps"],...reps.map(r=>[r,r]),...un],ui.rep);
+  fillSelect($("#o-rep"),[["all","All reps"],...reps.map(r=>[r,r]),...un],ui.orep);
+  fillSelect($("#o-status"),[["all","All statuses"],...STATUSES.map(s=>[s,s])],ui.ostatus);
+  document.querySelectorAll("#metric-seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===ui.metric));
+  document.querySelectorAll("#o-view button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===ui.oview));
+}
+const repMatch=(o,r)=>r==="all"||(r==="__none"?!o.salesRep:o.salesRep===r);
+const repName=r=>r==="all"?"all reps":r==="__none"?"unassigned":r;
+
+// ---------- dashboard ----------
+function renderDash(){
+  const base=ORDERS.filter(counted);
+  const inPeriod=o=>{const {y,m}=ym(o);return (ui.year==="all"||y===ui.year)&&(ui.month==="all"||m===+ui.month)};
+  const sel=base.filter(o=>inPeriod(o)&&repMatch(o,ui.rep));const a=agg(sel);
+  const totalOrders=uniqOrders(ORDERS),countedOrders=uniqOrders(base);
+  $("#count-note").textContent=loaded?`${fint.format(totalOrders)} orders · ${fint.format(ORDERS.length)} product lines${totalOrders-countedOrders>0?` · ${totalOrders-countedOrders} quotes/cancelled not counted`:""}`:"";
+  const per=(ui.month==="all"?"":MONTHS_L[ui.month-1]+" ")+(ui.year==="all"?"All years":ui.year)+" · "+repName(ui.rep);
+  const tiles=[
+    ["sales","Total sales",money(a.sales),`${per}${a.ctax?` · incl. ${money(a.ctax)} customer tax`:""}`],
+    ["orders","Orders",fint.format(a.orders),`${a.lines} product line${a.lines===1?"":"s"} · avg order ${money(a.aov)}`],
+    ["gross","Gross profit",money(a.gross),`${pct(a.gm)} of sales · before commission and fees`],
+    ["net","Net profit",money(a.net),`${pct(a.nm)} of sales · after ${money(a.comm)} commission, ${money(a.fee)} fees${a.tax?`, ${money(a.tax)} tax`:""}`],
+    [null,"In-hands on time",a.onN?pct(a.onT/a.onN):"—",a.onN?`${a.onT} of ${a.onN} delivered orders${a.dayN?` · avg ${Math.round(a.days/a.dayN)} days order→delivery`:""}`:"No delivery dates yet"],
+  ];
+  $("#kpis").innerHTML=tiles.map(([m,l,v,s])=>`<div class="kpi${m===ui.metric?" sel":""}"${m?` data-m="${m}" style="cursor:pointer"`:""}><span class="lbl">${l}</span><span class="v${v.startsWith("-")?" neg":""}">${v}</span><span class="s">${esc(s)}</span></div>`).join("");
+  const M=METRIC[ui.metric];const val=g=>g[ui.metric==="orders"?"orders":ui.metric];
+  let pts;
+  if(ui.year==="all"){
+    const ys=[...new Set(base.map(o=>ym(o).y).filter(Boolean))].sort();
+    pts=ys.map(y=>{const g=agg(base.filter(o=>ym(o).y===y&&repMatch(o,ui.rep)&&(ui.month==="all"||ym(o).m===+ui.month)));return {label:y,v:val(g),g,hi:false}});
+    $("#trend-title").textContent=`${M.l} by year`;
+    $("#trend-sub").textContent=(ui.month==="all"?"All months":MONTHS_L[ui.month-1]+" only")+" · "+repName(ui.rep)+". Pick a year to see months.";
+  }else{
+    pts=MONTHS.map((mn,i)=>{const g=agg(base.filter(o=>{const t=ym(o);return t.y===ui.year&&t.m===i+1&&repMatch(o,ui.rep)}));return {label:mn,v:val(g),g,hi:ui.month!=="all"&&+ui.month===i+1}});
+    $("#trend-title").textContent=`${M.l} by month, ${ui.year}`;
+    $("#trend-sub").textContent=repName(ui.rep).replace(/^./,c=>c.toUpperCase())+(ui.month!=="all"?` · ${MONTHS_L[ui.month-1]} highlighted`:"");
+  }
+  barChart($("#trend"),pts,M,{color:"var(--s1)",dim:ui.month!=="all"&&ui.year!=="all"});
+  const reps=allReps();if(base.some(o=>!o.salesRep))reps.push("__none");
+  const periodOrders=base.filter(inPeriod);
+  const rows=reps.map(r=>({r,g:agg(periodOrders.filter(o=>repMatch(o,r)))}));
+  const psub=(ui.year==="all"?"All years":ui.year)+(ui.month==="all"?"":" · "+MONTHS_L[ui.month-1]);
+  $("#rep-title").textContent=`${M.l} by rep`;$("#rep-sub").textContent=psub;
+  hbarChart($("#repchart"),rows.map(x=>({key:x.r,label:x.r==="__none"?"Unassigned":x.r,v:val(x.g),g:x.g,color:x.r==="__none"?"var(--muted)":repColor(x.r),hi:ui.rep===x.r})),M,ui.rep!=="all");
+  const tot=agg(periodOrders);
+  $("#score-sub").textContent=psub+" · click a rep to filter the dashboard";
+  const rowHtml=(lab,g,dot,attrs)=>`<tr${attrs||""}><td>${dot||""}${lab}</td><td class="n">${g.orders}</td><td class="n">${g.lines}</td><td class="n">${money(g.sales)}</td><td class="n">${tot.sales?pct(g.sales/tot.sales):"—"}</td><td class="n">${money(g.aov)}</td><td class="n${g.gross<0?" neg":""}">${money(g.gross)}</td><td class="n">${pct(g.gm)}</td><td class="n">${money(g.comm)}</td><td class="n${g.net<0?" neg":""}">${money(g.net)}</td><td class="n">${pct(g.nm)}</td></tr>`;
+  $("#score").innerHTML=`<thead><tr><th>Rep</th><th class="n">Orders</th><th class="n">Lines</th><th class="n">Sales</th><th class="n">Share</th><th class="n">Avg order</th><th class="n">Gross profit</th><th class="n">Gross margin</th><th class="n">Commission</th><th class="n">Net profit</th><th class="n">Net margin</th></tr></thead><tbody>`+
+    rows.map(x=>rowHtml(esc(x.r==="__none"?"Unassigned":x.r),x.g,`<span class="dot" style="background:${x.r==="__none"?"var(--muted)":repColor(x.r)}"></span>`,` class="click" data-rep="${esc(x.r)}"${ui.rep===x.r?' style="font-weight:700"':""}`)).join("")+
+    `</tbody><tfoot>${rowHtml("Total",tot,"",' class="tot"')}</tfoot>`;
+  const repSel=base.filter(o=>repMatch(o,ui.rep)&&(ui.year==="all"||ym(o).y===ui.year));
+  const mk=o=>{const t=ym(o);return t.y&&t.m?`${t.y}-${String(t.m).padStart(2,"0")}`:"No date"};
+  const keys=[...new Set(repSel.map(mk))].sort().reverse();
+  $("#bd-sub").textContent=(ui.year==="all"?"All years":ui.year)+" · "+repName(ui.rep);
+  const bt=agg(repSel);
+  const bRow=(lab,g,st)=>`<tr${st||""}><td>${lab}</td><td class="n">${g.orders}</td><td class="n">${money(g.sales)}</td><td class="n">${money(g.cost)}</td><td class="n${g.gross<0?" neg":""}">${money(g.gross)}</td><td class="n">${pct(g.gm)}</td><td class="n">${money(g.comm)}</td><td class="n">${money(g.fee)}</td><td class="n">${money(g.tax)}</td><td class="n${g.net<0?" neg":""}">${money(g.net)}</td><td class="n">${pct(g.nm)}</td></tr>`;
+  $("#breakdown").innerHTML=`<thead><tr><th>Month</th><th class="n">Orders</th><th class="n">Sales</th><th class="n">Total cost</th><th class="n">Gross profit</th><th class="n">Gross margin</th><th class="n">Commission</th><th class="n">Platform fees</th><th class="n">Customer tax</th><th class="n">Net profit</th><th class="n">Net margin</th></tr></thead><tbody>`+
+    (keys.length?keys.map(k=>{const g=agg(repSel.filter(o=>mk(o)===k));const lab=k==="No date"?k:`${MONTHS_L[+k.slice(5)-1]} ${k.slice(0,4)}`;
+      const on=ui.month!=="all"&&k.slice(5)===String(ui.month).padStart(2,"0");return bRow(lab,g,on?' style="font-weight:700"':"")}).join("")
+    :`<tr><td colspan="11" class="empty">No counted orders for this selection yet.</td></tr>`)+`</tbody>`+(keys.length?`<tfoot>${bRow("Total",bt,' class="tot"')}</tfoot>`:"");
+}
+
+// ---------- charts ----------
+const tip=$("#tip");tip.style.position="absolute";
+function showTip(host,x,y,html){const r=host.getBoundingClientRect();tip.innerHTML=html;tip.hidden=false;
+  const px=r.left+x+window.scrollX,py=r.top+y+window.scrollY;tip.style.left=px+"px";tip.style.top=py+"px";
+  const tr=tip.getBoundingClientRect();if(tr.left<8)tip.style.left=(px+8-tr.left)+"px";if(tr.right>innerWidth-8)tip.style.left=(px-(tr.right-innerWidth+8))+"px"}
+function hideTip(){tip.hidden=true}
+function tipHtml(label,g){return `<b>${esc(label)}</b><br>Sales ${money(g.sales)} · ${g.orders} order${g.orders===1?"":"s"} (${g.lines} lines)<br>Gross ${money(g.gross)} (${pct(g.gm)})<br>Net ${money(g.net)} (${pct(g.nm)})`}
+function niceMax(v){if(v<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
+function roundTop(x,y,w,h,r){r=Math.min(r,w/2,h);if(h<=0)return "";return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`}
+function roundBottom(x,y,w,h,r){r=Math.min(r,w/2,h);if(h<=0)return "";return `M${x},${y}H${x+w}V${y+h-r}Q${x+w},${y+h} ${x+w-r},${y+h}H${x+r}Q${x},${y+h} ${x},${y+h-r}Z`}
+function barChart(host,pts,M,opt){
+  const W=Math.max(280,host.clientWidth||600),H=260,pl=52,pr=8,pt=22,pb=26;
+  const vals=pts.map(p=>p.v),mx=Math.max(0,...vals),mn=Math.min(0,...vals);
+  if(!pts.length||(mx===0&&mn===0)){host.innerHTML=`<div class="empty" style="padding:60px 0"><h3>No data for this view</h3>Add orders or change the filters.</div>`;return}
+  const top=niceMax(mx),bot=mn<0?-niceMax(-mn):0,ih=H-pt-pb,iw=W-pl-pr;const Y=v=>pt+ih*(top-v)/(top-bot);
+  const step=(top-bot)/4,bw=iw/pts.length,w=Math.max(4,Math.min(46,bw*0.62));
+  let s=`<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(M.l)} bar chart">`;
+  for(let i=0;i<=4;i++){const t=bot+step*i;s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)"/><text x="${pl-8}" y="${Y(t)+4}" text-anchor="end">${M.c(t)}</text>`}
+  s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--axis)"/>`;
+  const every=W<420&&pts.length>8?2:1,best=vals.indexOf(mx);
+  pts.forEach((p,i)=>{const x=pl+bw*i+(bw-w)/2,y0=Y(0),y1=Y(p.v);const d=p.v>=0?roundTop(x,y1,w,y0-y1,4):roundBottom(x,y0,w,y1-y0,4);
+    s+=`<path d="${d}" fill="${p.v<0?"var(--s8)":opt.color}" opacity="${opt.dim&&!p.hi?0.35:1}"/>`;
+    if(i%every===0)s+=`<text x="${pl+bw*i+bw/2}" y="${H-8}" text-anchor="middle"${p.hi?' style="fill:var(--ink);font-weight:700"':""}>${esc(p.label)}</text>`;
+    if((p.hi||(!opt.dim&&i===best))&&p.v!==0)s+=`<text class="vlab" x="${pl+bw*i+bw/2}" y="${(p.v>=0?y1:y1+12)-6}" text-anchor="middle">${M.c(p.v)}</text>`;
+    s+=`<rect data-i="${i}" x="${pl+bw*i}" y="${pt}" width="${bw}" height="${ih}" fill="transparent"/>`});
+  host.innerHTML=s+`</svg>`;
+  host.querySelectorAll("rect[data-i]").forEach(r=>{const i=+r.dataset.i,p=pts[i];
+    r.addEventListener("mousemove",()=>showTip(host,pl+bw*i+bw/2,Math.min(Y(p.v),Y(0)),tipHtml(p.label,p.g)));r.addEventListener("mouseleave",hideTip)});
+}
+function hbarChart(host,rows,M,dim){
+  const W=Math.max(260,host.clientWidth||400),rh=34,pl=Math.min(120,W*0.32),pr=64,pt=4,H=pt+rows.length*rh+4;
+  if(!rows.length||rows.every(r=>r.v===0)){host.innerHTML=`<div class="empty" style="padding:60px 0"><h3>No rep data yet</h3>Assign a sales rep on each order.</div>`;return}
+  const mx=Math.max(0,...rows.map(r=>r.v)),mn=Math.min(0,...rows.map(r=>r.v)),span=(mx-mn)||1,iw=W-pl-pr;const X=v=>pl+iw*(v-mn)/span;
+  let s=`<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(M.l)} by rep">`;
+  rows.forEach((r,i)=>{const y=pt+i*rh+7,h=rh-14,x0=X(0),x1=X(r.v),x=Math.min(x0,x1),w=Math.max(2,Math.abs(x1-x0)),rr=Math.min(4,w/2);
+    const d=r.v>=0?`M${x},${y}H${x+w-rr}Q${x+w},${y} ${x+w},${y+rr}V${y+h-rr}Q${x+w},${y+h} ${x+w-rr},${y+h}H${x}Z`:`M${x+w},${y}H${x+rr}Q${x},${y} ${x},${y+rr}V${y+h-rr}Q${x},${y+h} ${x+rr},${y+h}H${x+w}Z`;
+    s+=`<text x="${pl-10}" y="${y+h/2+4}" text-anchor="end" style="fill:var(--ink-2);font-size:12px${r.hi?";font-weight:700;fill:var(--ink)":""}">${esc(r.label.length>16?r.label.slice(0,15)+"…":r.label)}</text>`;
+    s+=`<path d="${d}" fill="${r.color}" opacity="${dim&&!r.hi?0.35:1}"/><text class="vlab" x="${Math.max(x0,x1)+6}" y="${y+h/2+4}">${M.c(r.v)}</text>`;
+    s+=`<rect data-i="${i}" x="0" y="${pt+i*rh}" width="${W}" height="${rh}" fill="transparent" style="cursor:pointer"/>`});
+  host.innerHTML=s+`<line x1="${X(0)}" x2="${X(0)}" y1="${pt}" y2="${H-4}" stroke="var(--axis)"/></svg>`;
+  host.querySelectorAll("rect[data-i]").forEach(el=>{const i=+el.dataset.i,r=rows[i];
+    el.addEventListener("mousemove",()=>showTip(host,X(r.v),pt+i*rh+6,tipHtml(r.label,r.g)));el.addEventListener("mouseleave",hideTip);
+    el.addEventListener("click",()=>{ui.rep=ui.rep===r.key?"all":r.key;saveUi();renderAll()})});
+}
+
+// ---------- orders list ----------
+function groupOrders(list){const m=new Map();for(const o of list){const k=orderKey(o);if(!m.has(k))m.set(k,[]);m.get(k).push(o)}return [...m.entries()]}
+function renderOrders(){
+  const t=$("#orders-tbl");
+  if(!loaded){t.innerHTML=`<tbody><tr><td class="empty">Loading orders…</td></tr></tbody>`;return}
+  if(!ORDERS.length){t.innerHTML=`<tbody><tr><td class="empty"><h3>No orders yet</h3>Click <b>+ New order</b> to log your first sale, or <b>Import CSV</b> to bring in your Google Sheet.</td></tr></tbody>`;return}
+  const q=ui.search.trim().toLowerCase();
+  let list=ORDERS.filter(o=>(ui.ostatus==="all"||(o.status||"Pending")===ui.ostatus)&&repMatch(o,ui.orep));
+  if(q)list=list.filter(o=>["orderNumber","companyName","clientName","productName","poNumber","supplierName","clientEmail","supplierItem","websiteItem"].some(k=>String(o[k]||"").toLowerCase().includes(q)));
+  list.sort((a,b)=>(b.orderDate||"").localeCompare(a.orderDate||"")||String(b.orderNumber||"").localeCompare(String(a.orderNumber||"")));
+  const repCell=o=>o.salesRep?`<span class="dot" style="background:${repColor(o.salesRep)}"></span>${esc(o.salesRep)}`:'<span class="note">Unassigned</span>';
+  const stCell=o=>{const st=o.status||"Pending";return `<span class="pill ${STATUS_CLS[st]||""}">${esc(st)}</span>`};
+  const onCell=v=>v===null?'<span class="note">—</span>':v?'<span class="pill good">On time</span>':'<span class="pill crit">Late</span>';
+  const sampleTag=o=>o.sample?'<span class="tag">Example</span>':"";
+  if(ui.oview==="orders"){
+    const groups=groupOrders(list);
+    t.innerHTML=`<thead><tr><th>Order #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th></tr></thead><tbody>`+
+      (groups.length?groups.map(([k,ls])=>{const o=ls[0],g=agg(ls),items=ls.reduce((s,x)=>s+x._c.q,0);
+        const on=g.onN?g.onT===g.onN:null;const prods=ls.map(x=>x.productName||"Untitled").join(", ");
+        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td></tr>`}).join("")
+      :`<tr><td colspan="11" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
+  }else{
+    t.innerHTML=`<thead><tr><th>Order #</th><th>Order date</th><th>Client company</th><th>Product</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Cost/unit</th><th class="n">Price/unit</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>`+
+      (list.length?list.map(o=>{const c=o._c;return `<tr class="click" data-id="${esc(o._id)}"><td>${esc(o.orderNumber||"(no #)")}</td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(o.productName||"")}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(c.q)}</td><td class="n">${money2(c.costPerUnit)}</td><td class="n">${money2(num(o.customerUnitPrice))}</td><td class="n">${money2(c.totalPrice)}</td><td class="n${c.grossPnL<0?" neg":""}">${money2(c.grossPnL)}</td><td class="n${c.netPnL<0?" neg":""}">${money2(c.netPnL)}</td></tr>`}).join("")
+      :`<tr><td colspan="12" class="empty">No product lines match these filters.</td></tr>`)+`</tbody>`;
+  }
+}
+
+// ---------- order form ----------
+let editing=null;
+function nextOrderNumber(){let max=1000,pre="ORD-";ORDERS.forEach(o=>{const m=String(o.orderNumber||"").match(/^(.*?)(\d+)$/);if(m&&+m[2]>=max){max=+m[2];pre=m[1]}});return pre+(max+1)}
+function openForm(o,prefill){
+  editing=o?stripMeta(o):Object.assign({status:"Pending",priority:"Normal",inHandsAchieved:"Auto",orderDate:new Date().toISOString().slice(0,10),orderNumber:nextOrderNumber(),
+    salesRep:ui.rep!=="all"&&ui.rep!=="__none"?ui.rep:"",platformFeeType:"%"},prefill||{});
+  delete editing.commissionType;if(!editing.platformFeeType)editing.platformFeeType="%";
+  const id=o?o._id:null;
+  const siblings=editing.orderNumber?ORDERS.filter(x=>orderKey(x)===String(editing.orderNumber).trim().toUpperCase()&&x._id!==id):[];
+  const secs=[...new Set(F.map(f=>f.s))];
+  $("#drawer-root").innerHTML=`<div class="overlay" id="ov"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="dr-t">
+    <div class="drawer-h"><h2 id="dr-t">${id?"Edit product line":prefill?"Add product to order":"New order"}</h2><button class="btn ghost" id="dr-x" aria-label="Close">✕</button></div>
+    <div class="drawer-b">${siblings.length?`<div class="banner" style="margin:0 0 12px;background:var(--info-soft)"><p>Order <b>${esc(editing.orderNumber)}</b> has ${siblings.length} other product line${siblings.length>1?"s":""}: ${esc(siblings.map(s=>s.productName||"Untitled").join(", "))}. Order and client details you change here are copied to all lines.</p></div>`:""}
+    <form id="of" autocomplete="off">${secs.map(sec=>`<fieldset><legend>${sec}${sec==="Order"||sec==="Client"?' <span class="note" style="font-weight:400">· same for every product in this order</span>':""}</legend><div class="fgrid">${F.filter(f=>f.s===sec).map(fieldHtml).join("")}</div>${sec==="Price"?'<div class="pnl" id="pnl"></div>':""}</fieldset>`).join("")}</form>
+    <p class="note">Grey hint text shows the default that applies when a field is left blank.</p></div>
+    <div class="drawer-f"><button class="btn primary" id="dr-save">${id?"Save changes":"Save"}</button><button class="btn" id="dr-add">Save & add another product</button><button class="btn" id="dr-cancel">Cancel</button><span class="spacer"></span>${id?'<button class="btn danger" id="dr-del">Delete line</button>':""}</div>
+  </div></div>`;
+  const form=$("#of");
+  Object.keys(editing).forEach(k=>{const el=form.elements["fld-"+k];if(el&&has(editing[k]))el.value=editing[k]});
+  form.addEventListener("input",e=>{const k=e.target.name?.replace("fld-","");if(!k)return;editing[k]=e.target.value;updateCalc()});
+  form.addEventListener("change",e=>{const k=e.target.name?.replace("fld-","");if(!k)return;editing[k]=e.target.value;updateCalc()});
+  form.addEventListener("submit",e=>e.preventDefault());
+  updateCalc();
+  const esck=e=>{if(e.key==="Escape")close()};
+  const close=()=>{$("#drawer-root").innerHTML="";editing=null;document.removeEventListener("keydown",esck)};
+  document.addEventListener("keydown",esck);
+  $("#dr-x").onclick=close;$("#dr-cancel").onclick=close;
+  $("#ov").addEventListener("mousedown",e=>{if(e.target.id==="ov")close()});
+  const doSave=async(addAnother)=>{
+    const data={};Object.entries(editing).forEach(([k,v])=>{if(FK[k]&&FK[k].t==="calc")return;if(has(v))data[k]=NUMERIC.has(k)?num(v):String(v)});
+    if(!has(data.orderNumber))data.orderNumber=nextOrderNumber();
+    if(o&&o.sample)data.sample=true;data.updatedAt=new Date().toISOString();
+    const btns=document.querySelectorAll(".drawer-f .btn");btns.forEach(b=>b.disabled=true);
+    try{
+      await saveLine(id,data);
+      // keep order-level details in sync across all lines of this order
+      const key=String(data.orderNumber).trim().toUpperCase();
+      const shared={};ORDER_KEYS.forEach(k=>{shared[k]=has(data[k])?data[k]:null});
+      for(const s of ORDERS.filter(x=>orderKey(x)===key&&x._id!==id)){
+        const diff={};ORDER_KEYS.forEach(k=>{const nv=shared[k];const ov=has(s[k])?s[k]:null;if(nv!==ov)diff[k]=nv===null?"":nv});
+        if(Object.keys(diff).length)await db.collection("orders").doc(s._id).update(diff);
+      }
+      toast(id?"Saved":"Product line saved");close();
+      if(addAnother){const pre={};ORDER_KEYS.forEach(k=>{if(has(data[k]))pre[k]=data[k]});pre.platformFeeType=data.platformFeeType;openForm(null,pre)}
+    }catch(err){btns.forEach(b=>b.disabled=false);toast(errMsg(err))}
+  };
+  $("#dr-save").onclick=()=>doSave(false);$("#dr-add").onclick=()=>doSave(true);
+  if(id){let armed=false;$("#dr-del").onclick=async()=>{if(!armed){armed=true;$("#dr-del").textContent="Click again to delete";return}
+    try{await db.collection("orders").doc(id).delete();toast("Line deleted");close()}catch(err){toast(errMsg(err))}}}
+  setTimeout(()=>form.querySelector("input,select")?.focus(),50);
+}
+function fieldHtml(f){
+  const id="fld-"+f.k,cls=f.wide?" wide":"",hint=f.hint?`<div class="hintline">${esc(f.hint)}</div>`:"";
+  const lab=`<label for="${id}">${esc(f.l)}</label>`;
+  if(f.t==="calc")return `<div class="field${cls}"><span class="lbl">${esc(f.l)}</span><div class="calc" id="calc-${f.k}">—</div>${hint}</div>`;
+  if(f.t==="pair")return `<div class="field${cls}"><label for="fld-${f.k}Value">${esc(f.l)}</label><div class="pair"><select id="fld-${f.k}Type" name="fld-${f.k}Type" aria-label="${esc(f.l)} type"><option value="$">$</option><option value="%">%</option></select><input type="number" step="0.01" id="fld-${f.k}Value" name="fld-${f.k}Value"></div><div class="hintline" id="hint-${f.k}"></div></div>`;
+  if(f.t==="select")return `<div class="field${cls}">${lab}<select id="${id}" name="${id}">${f.o.map(x=>`<option value="${esc(x)}">${esc(x||"—")}</option>`).join("")}</select>${hint}</div>`;
+  if(f.t==="rep")return `<div class="field${cls}">${lab}<select id="${id}" name="${id}"><option value="">Unassigned</option>${allReps().map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("")}</select></div>`;
+  if(f.t==="area")return `<div class="field${cls}">${lab}<textarea id="${id}" name="${id}" rows="2"></textarea></div>`;
+  const type=f.t==="date"?"date":(f.t==="money"||f.t==="num")?"number":f.t==="email"?"email":f.t==="tel"?"tel":"text";
+  return `<div class="field${cls}">${lab}<input type="${type}" id="${id}" name="${id}"${f.t==="money"||f.t==="num"?' step="any" inputmode="decimal"':""}>${hint}</div>`;
+}
+function updateCalc(){
+  if(!editing)return;const c=calc(editing),form=$("#of");const set=(k,v)=>{const el=$("#calc-"+k);if(el)el.textContent=v};
+  set("costPerUnit",money2(c.costPerUnit));set("supplierTax",money2(c.supplierTax));set("totalCost",money2(c.totalCost));
+  set("customerTax",money2(c.customerTax));set("totalPrice",money2(c.totalPrice));set("grossPnL",money2(c.grossPnL));set("grossMargin",pct(c.grossMargin));
+  set("netPnL",money2(c.netPnL));set("netMargin",pct(c.netMargin));set("orderTimeline",c.orderTimeline===null?"—":c.orderTimeline+" days");
+  const ph=(k,v)=>{const el=form.elements["fld-"+k];if(el)el.placeholder=v};
+  ph("supplierTaxPct",c.supTaxPct+"% (default)");ph("customerTaxPct",c.cusTaxPct+"% (default)");
+  ph("commissionValue","0");ph("platformFeeValue",c.feeType==="%"?`${c.feeAuto} (auto)`:"0");
+  $("#hint-platformFee").textContent=`= ${money2(c.platformFee)}${c.feeType==="%"?" · % of total price":""} · lowers net profit only`;
+  $("#pnl").innerHTML=[["Total price",c.totalPrice],["Total cost",c.totalCost],["Gross profit",c.grossPnL],["Rep commission",-c.commission],["Platform fee",-c.platformFee],["Customer tax",-c.taxAdj],["Net profit",c.netPnL]]
+    .map(([k,v])=>`<div><div class="k">${k}</div><div class="x${v<0&&k.includes("profit")?" neg":""}">${money2(v)}</div></div>`).join("");
+}
+function stripMeta(o){const x={...o};delete x._id;delete x._c;return x}
+function errMsg(e){const c=e&&e.code;if(c==="quota_exceeded")return "Storage is full. Delete old orders to add more.";if(c==="invalid_argument"||c==="not_granted")return "You don't have permission to change this data.";return "Couldn't save. Check your connection and try again."}
+async function saveLine(id,data){if(!db)throw {code:"unavailable"};await (id?db.collection("orders").doc(id):db.collection("orders").doc()).set(data)}
+
+// ---------- CSV ----------
+function parseCSV(text){const rows=[];let row=[],f="",q=false;for(let i=0;i<text.length;i++){const ch=text[i];
+  if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}
+  else if(ch==='"')q=true;else if(ch===","){row.push(f);f=""}else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&text[i+1]==="\n")i++;row.push(f);rows.push(row);row=[];f=""}else f+=ch}
+  if(f!==""||row.length){row.push(f);rows.push(row)}return rows}
+const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9#%$]/g,"");
+function toISO(v){v=String(v||"").trim();if(!v)return "";if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);
+  const m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);if(m){let y=+m[3];if(y<100)y+=2000;return `${y}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`}
+  const d=new Date(v);return isNaN(d)?"":d.toISOString().slice(0,10)}
+async function importCSV(file){
+  const rows=parseCSV(await file.text());
+  const hi=rows.findIndex(r=>r.some(c=>["order#","po#","orderdate"].includes(norm(c))));
+  if(hi<0){toast("Couldn't find the header row (looking for “Order #” or “Order Date”).");return}
+  const hdr=rows[hi].map(norm);const idx=name=>hdr.indexOf(norm(name));
+  const map={};F.forEach(f=>{for(const n of [f.l,...(f.al||[])]){const i=idx(n);if(i>=0){map[f.k]=i;break}}});
+  EXPORT_COLS.forEach(c=>{if(!c.calc){const i=idx(c.l);if(i>=0&&map[c.k]===undefined)map[c.k]=i}});
+  const oldExtra=["Sample Costs (if any)","PMS Match Charges NET","Brokerage + Customs/Duty Fees NET (if any)","Supplier Transaction/Processing Fee"].map(idx).filter(i=>i>=0);
+  const iTotal=idx("Customer Total Price (all-in)");const iRep=idx("Sales Rep")>=0?idx("Sales Rep"):idx("Rep");
+  const recs=[];
+  for(const r of rows.slice(hi+1)){if(!r.some(c=>String(c).trim()))continue;const o={};
+    for(const [k,i] of Object.entries(map)){const f=FK[k];const v=(r[i]??"").trim();if(!v||(f&&f.t==="calc"))continue;
+      if(NUMERIC.has(k))o[k]=num(v);else if(f&&f.t==="date")o[k]=toISO(v);else o[k]=v}
+    if(oldExtra.length){const x=oldExtra.reduce((s,i)=>s+num(r[i]),0);if(x)o.otherCosts=num(o.otherCosts)+x}
+    if(!has(o.customerUnitPrice)&&iTotal>=0&&num(r[iTotal])&&num(o.quantity))o.customerUnitPrice=Math.round(num(r[iTotal])/num(o.quantity)*10000)/10000;
+    if(iRep>=0&&!o.salesRep&&r[iRep])o.salesRep=r[iRep].trim();
+    if(o.inHandsAchieved&&!["Yes","No","Auto"].includes(o.inHandsAchieved))o.inHandsAchieved=/^(y|true|1)/i.test(o.inHandsAchieved)?"Yes":/^(n|false|0)/i.test(o.inHandsAchieved)?"No":"Auto";
+    if(o.status&&!STATUSES.includes(o.status))o.status=STATUSES.find(s=>s.toLowerCase()===o.status.toLowerCase())||"Pending";
+    ["platformFeeType"].forEach(k=>{if(o[k]&&!["$","%"].includes(o[k]))o[k]=/%|pct|percent/i.test(o[k])?"%":"$"});
+    if(Object.keys(o).length<2)continue;o.importedAt=new Date().toISOString();recs.push(o)}
+  if(!recs.length){toast("No order rows found under the header.");return}
+  let ok=0;for(const o of recs){try{await saveLine(null,o);ok++}catch(e){toast(errMsg(e));break}}
+  toast(`Imported ${ok} product lines (${uniqOrders(recs.map((o,i)=>({...o,_id:"i"+i})))} orders)`);
+}
+function csvCell(v){v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+async function exportCSV(){
+  const lines=[EXPORT_COLS.map(c=>csvCell(c.l)).join(",")];
+  const list=[...ORDERS].sort((a,b)=>(a.orderDate||"").localeCompare(b.orderDate||"")||String(a.orderNumber||"").localeCompare(String(b.orderNumber||"")));
+  for(const o of list){const c=o._c;
+    const cv={costPerUnit:c.costPerUnit,supplierTax:c.supplierTax,totalCost:c.totalCost,customerTax:c.customerTax,totalPrice:c.totalPrice,grossPnL:c.grossPnL,
+      grossMargin:isFinite(c.grossMargin)?(c.grossMargin*100).toFixed(1)+"%":"",netPnL:c.netPnL,netMargin:isFinite(c.netMargin)?(c.netMargin*100).toFixed(1)+"%":"",
+      orderTimeline:c.orderTimeline??"",platformFee:c.platformFee};
+    const fill={supplierTaxPct:c.supTaxPct,customerTaxPct:c.cusTaxPct,commissionValue:c.commission,platformFeeType:c.feeType,platformFeeValue:c.feeVal};
+    lines.push(EXPORT_COLS.map(col=>{let v=col.calc?cv[col.calc]:(has(o[col.k])?o[col.k]:fill[col.k]);if(col.k==="inHandsAchieved")v=c.onTime===null?"":c.onTime?"Yes":"No";
+      return csvCell(typeof v==="number"?Math.round(v*100)/100:v)}).join(","))}
+  const dl=window.claude?await window.claude.use("downloads").catch(()=>null):null;
+  if(!dl){toast("Downloads aren't available in this view.");return}
+  try{await dl.save({filename:`sales-navigator-${new Date().toISOString().slice(0,10)}.csv`,data:lines.join("\n")})}catch(e){if(e&&e.code!=="declined")toast("Export didn't complete.")}
+}
+
+// ---------- settings ----------
+let draftReps=null;
+function renderSettings(){
+  if(!draftReps)draftReps=S.reps.map(r=>({orig:r,name:r}));
+  $("#rep-list").innerHTML=draftReps.map((r,i)=>`<div class="rep-row"><span class="dot" style="background:var(--s${(i%8)+1})"></span><input type="text" id="rep-${i}" data-i="${i}" value="${esc(r.name)}" aria-label="Rep ${i+1} name"><button class="btn ghost" data-del="${i}">Remove</button></div>`).join("");
+  $("#st-suptax").value=S.supplierTaxPct;$("#st-custax").value=S.customerTaxPct;$("#st-fee").value=S.platformFeePct;$("#st-feeon").value=S.feeOn;
+  $("#st-remit").checked=!!S.deductCustomerTax;
+  $("#st-statuses").innerHTML=STATUSES.map(s=>`<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="cs-${s.replace(/\s/g,"")}" data-s="${esc(s)}"${S.countStatuses.includes(s)?" checked":""}> <span class="pill ${STATUS_CLS[s]}">${esc(s)}</span></label>`).join("");
+  $("#formula").innerHTML=`<p style="margin:0 0 6px"><b>Total cost</b> = (Item cost + Running charge) × Number of items + Setup + Shipping + Other costs + Tax to supplier + Refund <span class="note">(refund only on Cancelled orders)</span></p>
+    <p style="margin:0 0 6px"><b>Total price</b> = Price per unit × Number of items + Tax customer pays <span class="note">(this is Total sales on the dashboard)</span></p>
+    <p style="margin:0 0 6px"><b>Gross profit</b> = Total price − Total cost <span class="note">(taxes included; rep commission and payment platform fee not included)</span></p>
+    <p style="margin:0 0 6px"><b>Net profit</b> = Gross profit − Rep commission − Payment platform fee${S.deductCustomerTax?" − Tax customer paid":""}</p>
+    <p style="margin:0" class="note">Orders are counted by unique Order #. Several product lines with the same Order # are one order.</p>`;
+}
+$("#rep-list").addEventListener("input",e=>{const i=e.target.dataset.i;if(i!==undefined)draftReps[+i].name=e.target.value});
+$("#rep-list").addEventListener("click",e=>{const i=e.target.dataset.del;if(i!==undefined){draftReps.splice(+i,1);renderSettings()}});
+$("#btn-add-rep").onclick=()=>{draftReps.push({orig:null,name:`Rep ${draftReps.length+1}`});renderSettings();$(`#rep-${draftReps.length-1}`)?.select()};
+$("#btn-save-settings").onclick=async()=>{
+  if(!db){toast("Storage isn't available in this view.");return}
+  const next={reps:[...new Set(draftReps.map(r=>r.name.trim()).filter(Boolean))],supplierTaxPct:num($("#st-suptax").value),customerTaxPct:num($("#st-custax").value),
+    platformFeePct:num($("#st-fee").value),feeOn:$("#st-feeon").value,
+    deductCustomerTax:$("#st-remit").checked,countStatuses:[...document.querySelectorAll("#st-statuses input:checked")].map(x=>x.dataset.s)};
+  try{await db.doc("settings/config").set(next);
+    let n=0;for(const r of draftReps.filter(r=>r.orig&&r.name.trim()&&r.orig!==r.name.trim())){for(const o of ORDERS.filter(o=>o.salesRep===r.orig)){await db.collection("orders").doc(o._id).update({salesRep:r.name.trim()});n++}}
+    draftReps=null;toast(n?`Settings saved · ${n} lines reassigned`:"Settings saved")}catch(e){toast(errMsg(e))}
+};
+
+// ---------- banner ----------
+function renderBanner(){
+  const b=$("#status-banner"),samples=ORDERS.filter(o=>o.sample);
+  if(dbState==="off"){b.innerHTML=`<div class="banner"><p><b>Storage isn't available in this view.</b> Open the artifact on claude.ai while signed in to save orders.</p></div>`;return}
+  if(!samples.length){b.innerHTML="";return}
+  b.innerHTML=`<div class="banner"><p><b>You're looking at ${uniqOrders(samples)} example orders.</b> They show how the dashboard works. Remove them when you're ready to enter your real sales.</p><button class="btn" id="btn-clear-samples">Remove example orders</button></div>`;
+  let armed=false;$("#btn-clear-samples").onclick=async e=>{if(!armed){armed=true;e.target.textContent="Click again to remove all examples";return}
+    e.target.disabled=true;e.target.textContent="Removing…";let n=0;for(const o of samples){try{await db.collection("orders").doc(o._id).delete();n++}catch(err){toast(errMsg(err));break}}toast(`Removed ${n} example lines`)};
+}
+
+// ---------- wiring ----------
+function setTab(t){ui.tab=t;saveUi();["dash","orders","settings"].forEach(x=>{$("#view-"+x).hidden=x!==t;$("#tab-"+x).setAttribute("aria-selected",x===t)});if(t==="settings"){draftReps=null;renderSettings()}renderAll()}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+$("#f-year").onchange=e=>{ui.year=e.target.value;saveUi();renderAll()};
+$("#f-month").onchange=e=>{ui.month=e.target.value==="all"?"all":+e.target.value;saveUi();renderAll()};
+$("#f-rep").onchange=e=>{ui.rep=e.target.value;saveUi();renderAll()};
+$("#metric-seg").onclick=e=>{const m=e.target.dataset?.m;if(m){ui.metric=m;saveUi();renderAll()}};
+$("#kpis").onclick=e=>{const k=e.target.closest("[data-m]");if(k){ui.metric=k.dataset.m;saveUi();renderAll()}};
+$("#score").onclick=e=>{const tr=e.target.closest("tr[data-rep]");if(tr){ui.rep=ui.rep===tr.dataset.rep?"all":tr.dataset.rep;saveUi();renderAll()}};
+$("#o-search").value=ui.search;
+$("#o-search").oninput=e=>{ui.search=e.target.value;renderOrders()};
+$("#o-status").onchange=e=>{ui.ostatus=e.target.value;saveUi();renderOrders()};
+$("#o-rep").onchange=e=>{ui.orep=e.target.value;saveUi();renderOrders()};
+$("#o-view").onclick=e=>{const v=e.target.dataset?.v;if(v){ui.oview=v;saveUi();renderFilters();renderOrders()}};
+$("#orders-tbl").onclick=e=>{
+  const tr=e.target.closest("tr[data-id]");if(tr){const o=ORDERS.find(x=>x._id===tr.dataset.id);if(o)openForm(o);return}
+  const g=e.target.closest("tr[data-order]");if(g){const k=g.dataset.order;const ls=ORDERS.filter(x=>orderKey(x)===k);
+    if(ls.length===1)openForm(ls[0]);else{ui.oview="lines";ui.search=ls[0].orderNumber||"";$("#o-search").value=ui.search;saveUi();renderFilters();renderOrders()}}};
+$("#btn-new").onclick=()=>openForm(null);
+$("#btn-import").onclick=()=>{if(!db){toast("Storage isn't available in this view.");return}$("#file-import").click()};
+$("#file-import").onchange=e=>{const f=e.target.files[0];if(f)importCSV(f);e.target.value=""};
+$("#btn-export").onclick=exportCSV;
+let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(ui.tab==="dash")renderDash()},120)});
+function renderAll(){ORDERS.forEach(o=>o._c=calc(o));renderFilters();renderBanner();if(ui.tab==="dash")renderDash();if(ui.tab==="orders")renderOrders()}
+
+// ---------- boot ----------
+setTab(["dash","orders","settings"].includes(ui.tab)?ui.tab:"dash");
+(async()=>{
+  db=window.claude?await window.claude.use("db").catch(()=>null):null;
+  if(!db){dbState="off";loaded=true;renderAll();return}
+  dbState="on";
+  db.doc("settings/config").onSnapshot(s=>{S=Object.assign(structuredClone(DEFAULT_SETTINGS),s.exists?s.data():{});S.reps=[...(S.reps||[])];S.countStatuses=[...(S.countStatuses||[])];if(ui.tab==="settings"&&!draftReps)renderSettings();renderAll()},()=>{});
+  db.collection("orders").onSnapshot(snap=>{ORDERS=snap.docs.map(d=>({...d.data(),_id:d.id}));loaded=true;renderAll()},()=>{dbState="off";loaded=true;renderAll()});
+})();
+})();
+</script>
+
