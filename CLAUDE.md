@@ -21,7 +21,7 @@ A sales dashboard and order log for a **promotional products** business (the com
 | `src/firebase-shim.js` | Online stand-in for `window.claude`: Google sign-in gate, then Firestore (compat SDK, same API as the Artifact db). |
 | `src/firebase-config.js` | Template for the Firebase web config. The real one lives in `docs/firebase-config.js` (not secret; access is enforced by rules). |
 | `docs/` | **GitHub Pages site** (generated `index.html` + `firebase-config.js` + `.nojekyll`). Pages serves from `main` branch `/docs`. |
-| `firestore.rules` | Security rules: only listed Google emails can read/write. Real emails are pasted in the Firebase console, not committed. |
+| `firestore.rules` | Security rules, published in the Firebase console: any verified `@aurorapromotions.ca` Google account can read/write. Firebase project `sales-navigator-1b716`; Google sign-in enabled; `aurorapromotions.github.io` is an authorized domain. |
 | `tools/serve.ps1` | Tiny static server (no Node/Python on this machine). Also wired in `.claude/launch.json` as `sales-navigator`. |
 
 **Run locally (Windows PowerShell):**
