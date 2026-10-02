@@ -117,5 +117,33 @@ service cloud.firestore {
       allow create: if full('acceptance');
       allow update, delete: if false;
     }
+    // acceptances/{token}: order + terms snapshot for the client page accept/?id=<token>.
+    // The token is long and random, so "get" is open to whoever has the link (no listing).
+    // Staff: full = all, limited = their own invoices (salesRep == their name).
+    // Once accepted, staff can only change status/payment fields, never the acceptance record itself.
+    // The client (not signed in) can do exactly one thing: accept a sent order with their name and the server time.
+    function staffAcc() {
+      return full('acceptance') || (limited('acceptance') && resource.data.salesRep == myName()
+        && request.resource.data.salesRep == myName());
+    }
+    match /acceptances/{id} {
+      allow get: if true;
+      allow list: if full('acceptance') || (limited('acceptance') && resource.data.salesRep == myName());
+      allow create: if (full('acceptance') || (limited('acceptance') && request.resource.data.salesRep == myName()))
+        && request.resource.data.status == 'draft' && id.size() >= 20;
+      allow update: if (staffAcc()
+          && (!(resource.data.status in ['accepted', 'paid'])
+              || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt', 'paidBy', 'payment', 'history', 'updatedAt', 'updatedBy']))
+          && (resource.data.status in ['accepted', 'paid'] || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['acceptedName', 'acceptedAt', 'acceptedUserAgent']))
+          // only the client can turn an order into "accepted"
+          && (request.resource.data.status != 'accepted' || resource.data.status == 'accepted'))
+        || (resource.data.status == 'sent' && request.resource.data.status == 'accepted'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedName', 'acceptedAt', 'acceptedUserAgent'])
+          && request.resource.data.acceptedName is string
+          && request.resource.data.acceptedName.size() >= 2 && request.resource.data.acceptedName.size() <= 100
+          && request.resource.data.acceptedAt == request.time
+          && request.resource.data.acceptedUserAgent is string && request.resource.data.acceptedUserAgent.size() <= 300);
+      allow delete: if full('acceptance') && !(resource.data.status in ['accepted', 'paid']);
+    }
   }
 }

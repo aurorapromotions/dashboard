@@ -73,7 +73,7 @@
 <tr><td><b>Handbook</b></td><td>This page.</td><td>Live</td></tr>
 <tr><td><b>Projects</b></td><td>One project per client order (linked by Invoice #): tasks, assignments, due dates, progress and comments.</td><td>Live</td></tr>
 <tr><td><b>Clients &amp; Seasons</b></td><td>Every client contact (built from orders), seasonal outreach with your website catalog links, emails opened in the rep's company Gmail/Outlook, follow-up reminders after 4 days without a reply.</td><td>Live</td></tr>
-<tr><td><b>Order Acceptance</b></td><td>Versioned, printable Terms &amp; Conditions (incl. shipping and force majeure). Next: client accepts the order summary + terms + Stripe/Square invoice online.</td><td>Terms live; online acceptance next</td></tr>
+<tr><td><b>Order Acceptance</b></td><td>Versioned Terms &amp; Conditions; clients accept orders on a private page and pay with Stripe or Square.</td><td>Live</td></tr>
 </tbody></table>
 <p>Live address: <b>https://aurorapromotions.github.io/dashboard/</b></p>
 
@@ -214,8 +214,17 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li>The starting draft covers quotes, order acknowledgement, proofs, colours, over/under-runs, production times and in-hands dates, <b>shipping and delivery</b>, damaged/lost shipments, <b>force majeure</b> (weather, pandemics, strikes including carrier/port/border strikes, customs holds, tariffs, supplier shutdowns, outages…), defects, cancellations, payment, taxes and duties, samples, logos, liability, privacy and governing law (Ontario).</li>
   <li>Admins edit on the <b>Edit</b> tab (business details and sections), then <b>Publish</b> a new version with an effective date and a note. Published versions can never be changed or deleted, so you always know which terms a client accepted. <code>{company}</code> and <code>{province}</code> fill in automatically.</li>
   <li>The draft is a practical starting point, <b>not legal advice</b>: have a lawyer review it before relying on it.</li>
-  <li><b>Next:</b> from an invoice, the rep sends the client a private link (from their own Gmail, after their approval) with the order summary, these terms and the Stripe/Square invoice; the client accepts online and the acceptance is recorded with the terms version.</li>
 </ul>
+<h3>Sending an order for acceptance</h3>
+<ol>
+  <li>Create the invoice in <b>Stripe or Square</b> as usual and copy its payment link.</li>
+  <li>In Sales Navigator (<i>By order</i> view → <b>Acceptance → Send</b>) or Order Acceptance → <b>Client acceptance</b> → <b>+ Send an order for acceptance</b>: pick the invoice, choose Stripe or Square, paste the link, add a message if you like, and click <b>Prepare</b>. The order summary (items, quantities, prices, tax, total), client details, in-hands date and the <b>current terms version</b> are saved with it.</li>
+  <li>The invoice's own rep clicks <b>Approve &amp; send</b> (twice) to email the client from their own Gmail. Others can only prepare it. (Or "Open in Gmail" / "Copy client link" and "I sent it".)</li>
+  <li>The client opens a private page (no login) at <code>accept/?id=…</code>, reviews the order and the terms, ticks the box, types their name and clicks <b>Accept order</b>. The dashboard records their name, Google's server time and the terms version; nobody can change that record afterwards.</li>
+  <li>The client pays with the <b>Stripe/Square</b> button on the same page. The rep then clicks <b>Mark as paid</b>, which also fills in "Date invoice paid by client" in Sales Navigator.</li>
+  <li><b>Withdraw</b> stops the client's link (for example if the order changed; then prepare it again).</li>
+</ol>
+<p class="hint">Payment status is marked by hand for now. Automatic "paid" from Stripe/Square needs a small server holding their secret keys (see Costs).</p>
 <h3>How the tools connect</h3>
 <table><thead><tr><th>From</th><th>You can…</th></tr></thead><tbody>
 <tr><td><b>Home</b></td><td>See today's numbers: sales this month, your follow-ups due, your open and late tasks, the current season. Each card opens its tool.</td></tr>
@@ -316,6 +325,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li><b>2 Oct 2026:</b> Plan changed from "Leads" to <b>Clients &amp; Seasons</b>: clients built from orders (owner = first rep), seasons added by hand every 1.5–2 months with website catalog links, emails opened in company Gmail/Outlook, follow-up after 4 days.</li>
   <li><b>2 Oct 2026:</b> Approve &amp; send from the rep's own company Gmail, with automatic reply detection. Rule: no email reaches a client without the approval of that client's own sales rep; admins and leads can only prepare drafts.</li>
   <li><b>2 Oct 2026:</b> Tools connected (home Today cards, invoice ↔ project ↔ client links, season sales). Order Acceptance started with versioned Terms &amp; Conditions including shipping and force majeure.</li>
+  <li><b>2 Oct 2026:</b> Client acceptance: private accept page with order summary + terms, Stripe or Square payment links, rep-approved sending, Mark as paid.</li>
 </ul>
 </article>
 </div>

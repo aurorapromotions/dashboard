@@ -346,7 +346,11 @@ let ORDERS=[],loaded=false,dbState="loading";
 // access from the dashboard sign-in: full = all orders, delete and settings; limited = only orders where they are the sales rep, add and edit only
 let FULL=true,MY_REP="";
 // links to the other dashboard tools (only shown to people who can use them)
-let PROJ_ON=false,PROJ_FULL=false,CLIENTS_ON=false,PROJ={};
+let PROJ_ON=false,PROJ_FULL=false,CLIENTS_ON=false,PROJ={},ACC_ON=false,ACC_FULL=false,ACCS={};
+const ACC_L={draft:"Prepared",sent:"Sent",accepted:"Accepted",paid:"Paid"};
+function accCell(o){const k=String(o.orderNumber||"").trim().toUpperCase(),a=k&&ACCS[k];
+  if(a)return `<a href="../acceptance/?id=${encodeURIComponent(a._id)}">${ACC_L[a.status]||a.status}</a>`;
+  return k&&(ACC_FULL||o.salesRep===MY_REP)?`<a href="../acceptance/?invoice=${encodeURIComponent(o.orderNumber)}">Send</a>`:'<span class="note">—</span>'}
 const clientKey=(email,name,company)=>{const slug=s=>String(s||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
   const e=String(email||"").trim().toLowerCase();return e&&e.includes("@")?e.replace(/\//g,"_"):"nc--"+slug(name)+"--"+slug(company)};
 function projCell(inv){const k=String(inv||"").trim().toUpperCase(),p=k&&PROJ[k];
@@ -703,11 +707,11 @@ function renderOrders(){
   const sampleTag=o=>o.sample?'<span class="tag">Example</span>':"";
   if(ui.oview==="orders"){
     const groups=groupOrders(list);
-    t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th><th class="n">Days to deliver</th>${PROJ_ON?"<th>Project</th>":""}</tr></thead><tbody>`+
+    t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th><th class="n">Days to deliver</th>${PROJ_ON?"<th>Project</th>":""}${ACC_ON?"<th>Acceptance</th>":""}</tr></thead><tbody>`+
       (groups.length?groups.map(([k,ls])=>{const o=ls[0],g=agg(ls),items=ls.reduce((s,x)=>s+x._c.q,0);
         const on=g.onN?g.onT===g.onN:null;const prods=ls.map(x=>x.productName||"Untitled").join(", ");
-        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no invoice #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td><td class="n">${g.dayN?g.days:"—"}</td>${PROJ_ON?`<td>${projCell(o.orderNumber)}</td>`:""}</tr>`}).join("")
-      :`<tr><td colspan="13" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
+        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no invoice #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td><td class="n">${g.dayN?g.days:"—"}</td>${PROJ_ON?`<td>${projCell(o.orderNumber)}</td>`:""}${ACC_ON?`<td>${accCell(o)}</td>`:""}</tr>`}).join("")
+      :`<tr><td colspan="14" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
   }else{
     t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Product</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Cost/unit</th><th class="n">Price/unit</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>`+
       (list.length?list.map(o=>{const c=o._c;return `<tr class="click" data-id="${esc(o._id)}"><td>${esc(o.orderNumber||"(no invoice #)")}</td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(o.productName||"")}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(c.q)}</td><td class="n">${money2(c.costPerUnit)}</td><td class="n">${money2(num(o.customerUnitPrice))}</td><td class="n">${money2(c.totalPrice)}</td><td class="n${c.grossPnL<0?" neg":""}">${money2(c.grossPnL)}</td><td class="n${c.netPnL<0?" neg":""}">${money2(c.netPnL)}</td></tr>`}).join("")
@@ -978,6 +982,11 @@ setTab(["dash","customers","orders","settings"].includes(ui.tab)?ui.tab:"dash");
     CLIENTS_ON=APP.level("clients")!=="none";PROJ_ON=APP.level("projects")!=="none";PROJ_FULL=APP.level("projects")==="full";
     if(PROJ_ON)(PROJ_FULL?db.collection("projects"):db.collection("projects").where("team","array-contains",APP.member.email)).onSnapshot(s=>{
       PROJ={};s.docs.forEach(d=>{const p=d.data(),k=String(p.invoiceNumber||"").trim().toUpperCase();if(k)PROJ[k]={...p,_id:d.id}});if(loaded)renderAll()},()=>{});
+    ACC_ON=APP.level("acceptance")!=="none";ACC_FULL=APP.level("acceptance")==="full";
+    // newest non-withdrawn acceptance per invoice
+    if(ACC_ON)(ACC_FULL?db.collection("acceptances"):db.collection("acceptances").where("salesRep","==",MY_REP)).onSnapshot(s=>{
+      ACCS={};s.docs.map(d=>({...d.data(),_id:d.id})).filter(a=>a.status!=="cancelled").sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)))
+        .forEach(a=>{ACCS[String(a.invoiceNumber||"").trim().toUpperCase()]=a});if(loaded)renderAll()},()=>{});
   }
   (FULL?db.collection("orders"):db.collection("orders").where("salesRep","==",MY_REP)).onSnapshot(snap=>{ORDERS=snap.docs.map(d=>({...d.data(),_id:d.id}));loaded=true;renderAll()},()=>{dbState="off";loaded=true;renderAll()});
 })();

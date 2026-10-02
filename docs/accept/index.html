@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Order acceptance · Aurora Promotions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/core.css">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<style>
+/* The page a CLIENT opens from the email (no sign-in). Layout: brand header; order summary card; terms (scrollable); accept card; pay card. */
+.wrap{max-width:860px;margin:0 auto;padding:28px 20px 60px}
+@media (max-width:600px){.wrap{padding:20px 16px 48px}}
+.brand{font-family:var(--f-display);font-weight:700;font-size:20px;margin-bottom:2px}
+.brand span{color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-top:14px}
+@media (max-width:600px){.card{padding:16px}}
+h1{font-family:var(--f-display);font-size:26px;margin:8px 0 2px;line-height:1.2}
+h2{font-size:16px;margin:0 0 10px}
+.meta{color:var(--ink-2);font-size:14px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 18px;margin:12px 0 0}
+.kv div span{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kv div b{font-weight:600;white-space:pre-wrap}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.n{text-align:right;white-space:nowrap}
+tfoot td{border-bottom:0;font-weight:600}
+tfoot tr.total td{font-size:17px;font-weight:700;border-top:1px solid var(--line-strong)}
+.note{white-space:pre-wrap;background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-top:12px;color:var(--ink-2)}
+.terms{max-height:420px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:14px 16px;line-height:1.55;font-size:14px;background:var(--bg)}
+.terms h3{font-size:14px;margin:14px 0 4px}
+.terms h3:first-child{margin-top:0}
+.terms p{margin:0 0 6px;color:var(--ink-2)}
+.accept label.chk{display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px}
+.accept label.chk input{margin-top:4px;width:18px;height:18px;flex:none}
+.accept input[type=text]{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:10px 12px;font-size:16px}
+.big{font-size:16px;padding:11px 20px}
+.done{border-left:4px solid var(--good-ink)}
+.err{color:var(--crit);margin:10px 0 0;min-height:1.2em}
+.muted{color:var(--muted);font-size:12px}
+.paybtn{display:inline-flex;align-items:center;gap:8px}
+@media print{.accept,.pay,.noprint{display:none!important}.terms{max-height:none;overflow:visible;border:0;padding:0}}
+</style>
+</head><body>
+<main class="wrap" id="app"><p class="ap-muted">Loading your order…</p></main>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=v=>new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD"}).format(+v||0);
+const fmtD=d=>d?new Date(d+"T12:00").toLocaleDateString("en-CA",{year:"numeric",month:"long",day:"numeric"}):"—";
+const fmtT=t=>{const d=t&&t.toDate?t.toDate():t?new Date(t):null;return d?d.toLocaleString("en-CA",{dateStyle:"long",timeStyle:"short"}):""};
+const id=new URLSearchParams(location.search).get("id")||"";
+const app=$("#app");
+const fail=msg=>{app.innerHTML=`<div class="brand">Aurora Promotions</div><div class="card"><h1>This link isn't working</h1><p class="meta">${msg}</p><p class="meta">Please contact your Aurora Promotions representative.</p></div>`};
+if(!/^[A-Za-z0-9]{20,64}$/.test(id)){fail("The link is incomplete. Please use the full link from your email.");return}
+firebase.initializeApp(window.FIREBASE_CONFIG);
+const ref=firebase.firestore().collection("acceptances").doc(id);
+const fill=(t,co)=>String(t||"").replace(/\{company\}/g,co.name||"Aurora Promotions").replace(/\{province\}/g,co.province||"Ontario");
+let A=null;
+function render(){
+  const a=A,co=(a.terms&&a.terms.company)||{name:"Aurora Promotions"};
+  if(a.status==="cancelled"){fail("This order acceptance was withdrawn.");return}
+  const accepted=a.status==="accepted"||a.status==="paid";
+  const pay=a.payment&&a.payment.url?a.payment:null,prov=pay?(pay.provider==="square"?"Square":pay.provider==="stripe"?"Stripe":""):"";
+  app.innerHTML=`<div class="brand">${esc(co.name)} <span>·</span> Order acceptance</div>
+    <div class="meta">${[co.address,co.email,co.phone,co.website].filter(Boolean).map(esc).join(" · ")}</div>
+    <div class="card">
+      <h1>Invoice ${esc(a.invoiceNumber)}</h1>
+      <div class="meta">Prepared for ${esc(a.clientName||"")}${a.clientCompany?`, ${esc(a.clientCompany)}`:""} by ${esc(a.salesRep||co.name)}</div>
+      <div class="kv">
+        <div><span>Order date</span><b>${esc(fmtD(a.orderDate))}</b></div>
+        <div><span>In-hands date</span><b>${esc(a.inHandsDate?fmtD(a.inHandsDate):"To be confirmed")}</b></div>
+        ${a.deliveryAddress?`<div style="grid-column:span 2"><span>Delivery address</span><b>${esc(a.deliveryAddress)}</b></div>`:""}
+      </div>
+      ${a.message?`<div class="note">${esc(a.message)}</div>`:""}
+    </div>
+    <div class="card"><h2>Order summary</h2><div class="tw"><table><thead><tr><th>Item</th><th class="n">Qty</th><th class="n">Unit price</th><th class="n">Amount</th></tr></thead><tbody>
+      ${(a.lines||[]).map(l=>`<tr><td><b>${esc(l.product)}</b>${l.details?`<div class="muted">${esc(l.details)}</div>`:""}</td><td class="n">${esc(l.qty)}</td><td class="n">${money(l.unitPrice)}</td><td class="n">${money(l.amount)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td colspan="3" class="n">Subtotal</td><td class="n">${money(a.subtotal)}</td></tr><tr><td colspan="3" class="n">Tax</td><td class="n">${money(a.tax)}</td></tr>
+      <tr class="total"><td colspan="3" class="n">Total (CAD)</td><td class="n">${money(a.total)}</td></tr></tfoot></table></div>
+      <p class="muted" style="margin:8px 0 0">Shipping, if not shown above, is invoiced at cost. Quantities may vary within the over/under-run allowance in the terms below.</p></div>
+    <div class="card"><h2>Terms &amp; Conditions <span class="muted" style="font-weight:400">· version ${esc(a.terms&&a.terms.version)} · effective ${esc(fmtD(a.terms&&a.terms.effectiveDate))}</span></h2>
+      <div class="terms">${((a.terms&&a.terms.sections)||[]).map((s,i)=>`<h3>${i+1}. ${esc(s.title)}</h3>${fill(s.body,co).split(/\n+/).map(p=>`<p>${esc(p)}</p>`).join("")}`).join("")}</div>
+      <p class="noprint" style="margin:10px 0 0"><button class="ap-btn ap-small" id="print">Print / save a copy</button></p></div>
+    ${accepted?`<div class="card done"><h2>✓ Order accepted</h2><p class="meta" style="margin:0">Accepted by <b>${esc(a.acceptedName)}</b> on ${esc(fmtT(a.acceptedAt))}, under Terms &amp; Conditions version ${esc(a.terms&&a.terms.version)}. Thank you!</p></div>`
+      :`<div class="card accept"><h2>Accept this order</h2>
+        <label class="chk"><input type="checkbox" id="agree"><span>I have reviewed the order summary above, and I accept the order and the Terms &amp; Conditions (version ${esc(a.terms&&a.terms.version)}) on behalf of ${esc(a.clientCompany||"my organization")}.</span></label>
+        <label for="nm" style="display:block;font-weight:600;margin-bottom:6px">Your full name</label>
+        <input type="text" id="nm" autocomplete="name" placeholder="Type your full name" value="">
+        <div style="margin-top:14px"><button class="ap-btn ap-primary big" id="acc">Accept order</button></div>
+        <p class="err" id="err" role="alert"></p>
+        <p class="muted" style="margin:6px 0 0">Your name and the date and time are recorded as your acceptance. Questions or changes? Reply to the email from ${esc(a.salesRep||"your representative")} before accepting.</p></div>`}
+    ${pay?`<div class="card pay"><h2>Payment</h2>${a.status==="paid"?`<p class="meta" style="margin:0">✓ Paid. Thank you.</p>`
+      :`<p class="meta" style="margin:0 0 12px">${accepted?"You can pay the invoice securely online:":"After accepting, you can pay the invoice securely online:"}</p>
+        <a class="ap-btn ${accepted?"ap-primary":""} big paybtn" href="${esc(pay.url)}" target="_blank" rel="noopener">Pay invoice ${esc(a.invoiceNumber)}${prov?` with ${prov}`:""}</a>
+        <p class="muted" style="margin:8px 0 0">Opens ${prov||"the payment page"} in a new tab. Card details go directly to ${prov||"the payment provider"}, never to us.</p>`}</div>`:""}`;
+  $("#print").onclick=()=>window.print();
+  if(!accepted){
+    $("#acc").onclick=async()=>{
+      const name=$("#nm").value.trim().replace(/\s+/g," "),err=t=>{$("#err").textContent=t};
+      if(!$("#agree").checked){err("Please tick the box to confirm you accept the order and the terms.");return}
+      if(name.length<2||name.length>100){err("Please type your full name.");return}
+      const btn=$("#acc");btn.disabled=true;btn.textContent="Saving…";
+      try{
+        await ref.update({status:"accepted",acceptedName:name,acceptedAt:firebase.firestore.FieldValue.serverTimestamp(),acceptedUserAgent:navigator.userAgent.slice(0,300)});
+        const s=await ref.get();A=s.data();render();window.scrollTo({top:0,behavior:"smooth"});
+      }catch(e){btn.disabled=false;btn.textContent="Accept order";err("Couldn't save your acceptance. Please try again, or contact your representative.")}
+    };
+  }
+}
+ref.get().then(s=>{if(!s.exists){fail("We couldn't find this order. It may have been withdrawn.");return}
+  A=s.data();if(A.status==="draft"){fail("This order hasn't been sent yet.");return}render()})
+  .catch(()=>fail("We couldn't load this order. Check your internet connection and try again."));
+})();
+</script>
+</body></html>

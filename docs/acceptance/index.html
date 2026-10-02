@@ -10,6 +10,7 @@
 <script src="../firebase-config.js"></script>
 <script>window.PAGE={tool:"acceptance",base:"../"}</script>
 <script src="../assets/core.js"></script>
+<script src="../assets/gmail.js"></script>
 <script src="terms-default.js"></script>
 <style>
 /* Layout: tabs (Terms & Conditions / Edit / Versions / Client acceptance); the terms read like a document; editing is a list of section cards. */
@@ -45,6 +46,22 @@ tbody tr:last-child td{border-bottom:0}
 tr.click{cursor:pointer}
 tr.click:hover td{background:var(--surface-2)}
 .pill{display:inline-flex;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--good-soft);color:var(--good-ink)}
+/* client acceptance list + slide-over */
+.overlay{position:fixed;inset:0;background:rgba(10,12,14,.45);z-index:40;display:flex;justify-content:flex-end}
+.drawer{background:var(--bg);width:min(760px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.2)}
+.drawer-h{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--surface)}
+.drawer-h h2{font-family:var(--f-display);font-size:18px;margin:0;margin-right:auto}
+.drawer-b{overflow-y:auto;padding:16px 20px 24px;flex:1;display:flex;flex-direction:column;gap:14px}
+.drawer-f{display:flex;gap:10px;padding:12px 20px;border-top:1px solid var(--line);background:var(--surface);flex-wrap:wrap;align-items:center}
+fieldset{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:0;padding:12px 14px 14px}
+legend{font-weight:700;font-size:13px;padding:0 6px}
+.ap-field textarea{background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;width:100%;min-height:90px;font:inherit;resize:vertical}
+.st{display:inline-flex;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st.draft{background:var(--surface-2);color:var(--ink-2)}.st.sent{background:var(--info-soft);color:var(--info-ink)}
+.st.accepted{background:var(--accent-soft);color:var(--ink)}.st.paid{background:var(--good-soft);color:var(--good-ink)}.st.cancelled{background:var(--crit-soft);color:var(--crit)}
+.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sendrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hist{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--ink-2)}
 @media print{
   .ap-bar,.head,.tabs,.bar,.banner,.noprint{display:none!important}
   body{background:#fff}.card{border:0}.doc{padding:0;max-width:none}
@@ -62,14 +79,9 @@ tr.click:hover td{background:var(--surface-2)}
   <section id="v-terms"></section>
   <section id="v-edit" hidden></section>
   <section id="v-versions" hidden></section>
-  <section id="v-send" hidden>
-    <div class="card" style="padding:20px;max-width:820px">
-      <h2 style="font-family:var(--f-display);font-size:20px;margin:0 0 6px">Coming next: send an order for acceptance</h2>
-      <p class="ap-muted">From an invoice in Sales Navigator, the rep will send the client a private link (from their own Gmail, after their approval) showing the order summary, these Terms &amp; Conditions and the Stripe/Square invoice. The client ticks "I accept" and types their name; the dashboard records who accepted, when, and which version of the terms. Payment marks the invoice as paid.</p>
-      <p class="ap-muted" style="margin:0">Until then, you can share the terms with clients using <b>Print / Save as PDF</b> on the Terms &amp; Conditions tab.</p>
-    </div>
-  </section>
+  <section id="v-send" hidden></section>
 </main>
+<div id="drawer-root"></div>
 <script>
 APP.ready.then(()=>{
 "use strict";
@@ -93,7 +105,7 @@ function render(){
   ["terms","edit","versions","send"].forEach(v=>$("#v-"+v).hidden=v!==ui.view);
   $("#tab-edit").hidden=!FULL;
   if(!loaded){$("#v-"+ui.view).innerHTML='<div class="card" style="padding:30px">Loading…</div>';return}
-  if(ui.view==="terms")renderTerms();else if(ui.view==="edit")renderEdit();else if(ui.view==="versions")renderVersions();
+  if(ui.view==="terms")renderTerms();else if(ui.view==="edit")renderEdit();else if(ui.view==="versions")renderVersions();else renderSend();
 }
 function renderTerms(){
   const v=viewing||latest();
@@ -146,8 +158,163 @@ function renderVersions(){
     ||'<tr><td colspan="4" class="hint" style="padding:24px">No published versions yet.</td></tr>'}</tbody></table></div>`;
   $("#v-versions").onclick=e=>{const r=e.target.closest("[data-v]");if(r){viewing=VERS.find(v=>v.version===+r.dataset.v);ui.view="terms";render()}};
 }
+// ---------- client acceptance ----------
+// acceptances/{random token}: a snapshot of the invoice + terms the client sees at accept/?id=<token>.
+// Only the invoice's own sales rep sends it (from their own Gmail, two-click approval); others can only prepare it.
+const SALES=APP.level("sales"),MYNAME=me.name||me.email,ACC_FULL=FULL;
+let ACC=[],ORD=[],SCFG={customerTaxPct:0,quoteStatus:"Quote",cancelledStatus:"Cancelled"},accLoaded=false;
+const ST_L={draft:"Prepared",sent:"Sent · waiting",accepted:"Accepted",paid:"Paid",cancelled:"Withdrawn"};
+const PROV={stripe:"Stripe",square:"Square"};
+const money=v=>new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD"}).format(+v||0);
+const fmtT=t=>t?new Date(t.toDate?t.toDate():t).toLocaleString("en-CA",{dateStyle:"medium",timeStyle:"short"}):"";
+const acceptUrl=id=>new URL("../accept/?id="+id,location.href).href;
+const newToken=()=>{const c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";return Array.from(crypto.getRandomValues(new Uint8Array(28)),b=>c[b%c.length]).join("")};
+const num=v=>{const n=parseFloat(String(v??"").replace(/[$,%\s]/g,""));return isFinite(n)?n:0};
+const has=v=>v!==undefined&&v!==null&&String(v).trim()!=="";
+function invoiceList(){const m=new Map();ORD.forEach(o=>{const k=String(o.orderNumber||"").trim();if(!k)return;const x=m.get(k.toUpperCase())||{inv:k,lines:[]};x.lines.push(o);m.set(k.toUpperCase(),x)});
+  return [...m.values()].sort((a,b)=>String(b.lines[0].orderDate||"").localeCompare(String(a.lines[0].orderDate||"")))}
+function summarize(inv){
+  const ls=ORD.filter(o=>String(o.orderNumber||"").trim().toUpperCase()===inv.toUpperCase());if(!ls.length)return null;
+  const first=ls[0];let subtotal=0,tax=0;
+  const lines=ls.map(o=>{const qty=num(o.quantity),unit=num(o.customerUnitPrice),amount=Math.round(qty*unit*100)/100;
+    const pct=has(o.customerTaxPct)?num(o.customerTaxPct):num(SCFG.customerTaxPct);subtotal+=amount;tax+=amount*pct/100;
+    return {product:o.productName||"Item",details:[o.productCategory,o.decorationMethod].filter(Boolean).join(" · "),qty,unitPrice:unit,amount}});
+  tax=Math.round(tax*100)/100;subtotal=Math.round(subtotal*100)/100;
+  return {invoiceNumber:first.orderNumber,salesRep:first.salesRep||"",clientName:first.clientName||"",clientEmail:String(first.clientEmail||"").trim().toLowerCase(),
+    clientCompany:first.companyName||"",deliveryAddress:first.deliveryAddress||"",inHandsDate:first.inHandsDate||"",orderDate:first.orderDate||"",lines,subtotal,tax,total:Math.round((subtotal+tax)*100)/100};
+}
+const isRep=a=>a.salesRep===MYNAME;
+function renderSend(){
+  const el=$("#v-send");
+  if(!accLoaded){el.innerHTML='<div class="card" style="padding:30px">Loading…</div>';return}
+  const list=[...ACC].sort((a,b)=>String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt)));
+  el.innerHTML=`<div class="bar"><button class="ap-btn ap-primary" id="acc-new">+ Send an order for acceptance</button><span class="hint">The client gets a private link to review the order and these terms, accept, and pay with Stripe or Square.</span></div>
+    <div class="card"><div class="tw" style="overflow-x:auto"><table><thead><tr><th>Invoice #</th><th>Client</th><th>Rep</th><th class="n">Total</th><th>Payment</th><th>Status</th><th>Updated</th></tr></thead><tbody>
+    ${list.map(a=>`<tr class="click" data-acc="${a._id}"><td><b>${esc(a.invoiceNumber)}</b></td><td>${esc(a.clientName||"")}<div class="hint">${esc(a.clientCompany||"")}</div></td><td>${esc(a.salesRep||"—")}</td>
+      <td class="n">${money(a.total)}</td><td>${a.payment&&a.payment.url?esc(PROV[a.payment.provider]||"Link"):'<span class="hint">—</span>'}</td>
+      <td><span class="st ${a.status}">${ST_L[a.status]||a.status}</span></td><td class="hint">${esc(fmtT(a.updatedAt||a.createdAt))}</td></tr>`).join("")
+      ||'<tr><td colspan="7" class="hint" style="padding:24px">Nothing sent for acceptance yet.</td></tr>'}</tbody></table></div></div>`;
+  $("#acc-new").onclick=()=>openNew("");
+  el.querySelectorAll("[data-acc]").forEach(r=>r.onclick=()=>openAcc(r.dataset.acc));
+}
+function drawer(title,body,foot){
+  $("#drawer-root").innerHTML=`<div class="overlay" id="ov"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="dt"><div class="drawer-h"><h2 id="dt">${title}</h2><button class="ap-btn ap-small" id="dx" aria-label="Close">✕</button></div>
+    <div class="drawer-b">${body}<p id="derr" role="alert" style="color:var(--crit);margin:0"></p></div><div class="drawer-f">${foot}</div></div></div>`;
+  const close=()=>{$("#drawer-root").innerHTML="";document.removeEventListener("keydown",k)};const k=e=>{if(e.key==="Escape")close()};document.addEventListener("keydown",k);
+  $("#dx").onclick=close;$("#ov").addEventListener("mousedown",e=>{if(e.target.id==="ov")close()});return close;
+}
+const derr=t=>{$("#derr").textContent=t};
+const sumTable=s=>`<table><thead><tr><th>Item</th><th class="n">Qty</th><th class="n">Unit</th><th class="n">Amount</th></tr></thead><tbody>${s.lines.map(l=>`<tr><td>${esc(l.product)}${l.details?`<div class="hint">${esc(l.details)}</div>`:""}</td><td class="n">${l.qty}</td><td class="n">${money(l.unitPrice)}</td><td class="n">${money(l.amount)}</td></tr>`).join("")}</tbody>
+  <tfoot><tr><td colspan="3" class="n">Subtotal</td><td class="n">${money(s.subtotal)}</td></tr><tr><td colspan="3" class="n">Tax</td><td class="n">${money(s.tax)}</td></tr><tr><td colspan="3" class="n"><b>Total</b></td><td class="n"><b>${money(s.total)}</b></td></tr></tfoot></table>`;
+const payFields=p=>`<fieldset><legend>Payment</legend><div class="sendrow">${[["stripe","Stripe"],["square","Square"],["","No online payment"]].map(([v,l])=>`<label style="display:flex;gap:6px;align-items:center"><input type="radio" name="prov" value="${v}"${((p&&p.provider)||"")===v?" checked":""}> ${l}</label>`).join("")}</div>
+  <label class="ap-field" style="margin-top:10px"><span>Payment link for this invoice</span><input id="pay-url" value="${esc(p&&p.url||"")}" placeholder="Paste the invoice link from Stripe or Square"></label>
+  <p class="hint" style="margin:6px 0 0">Create the invoice in Stripe or Square as usual and copy its link (Stripe: the hosted invoice page or a Payment Link; Square: "Share invoice" link). The client pays there directly.</p></fieldset>`;
+function readPay(){const provider=(document.querySelector("input[name=prov]:checked")||{}).value||"";let url=$("#pay-url").value.trim();
+  if(!url)return {ok:true,payment:{provider:"",url:""}};
+  if(!/^https:\/\/[^\s]+$/i.test(url))return {ok:false,msg:"The payment link must start with https://"};
+  if(!provider)return {ok:false,msg:"Choose Stripe or Square for this payment link."};
+  return {ok:true,payment:{provider,url}};
+}
+function openNew(inv){
+  const terms=latest();
+  if(!terms){APP.toast("Publish your Terms & Conditions first (Edit tab).");ui.view="edit";render();return}
+  if(SALES==="none"){APP.toast("You need Sales Navigator access to pick an invoice.");return}
+  const invs=invoiceList();
+  const close=drawer("Send an order for acceptance",`
+    <label class="ap-field"><span>Invoice #</span><input id="n-inv" list="n-invs" value="${esc(inv)}" placeholder="Type or pick an invoice" autocomplete="off">
+      <datalist id="n-invs">${invs.map(x=>`<option value="${esc(x.inv)}">${esc([x.lines[0].companyName,x.lines[0].clientName].filter(Boolean).join(" · "))}</option>`).join("")}</datalist></label>
+    <div id="n-sum"><p class="hint" style="margin:0">Pick an invoice to see the order summary the client will get.</p></div>
+    ${payFields(null)}
+    <label class="ap-field"><span>Message to the client (optional, shown on their page)</span><textarea id="n-msg" placeholder="e.g. Proof attached separately. Please accept by Friday to keep your in-hands date."></textarea></label>
+    <p class="hint" style="margin:0">Terms &amp; Conditions version ${terms.version} (effective ${esc(fmtD(terms.effectiveDate))}) will be attached and saved with this order.</p>`,
+    '<button class="ap-btn ap-primary" id="n-save">Prepare</button><button class="ap-btn" id="n-cancel">Cancel</button>');
+  $("#n-cancel").onclick=close;
+  let sum=null;
+  const show=()=>{sum=summarize($("#n-inv").value.trim());
+    $("#n-sum").innerHTML=!sum?'<p class="hint" style="margin:0">No order lines found for that invoice # (you only see invoices you have access to).</p>'
+      :`<fieldset><legend>Order summary</legend><p style="margin:0 0 8px"><b>${esc(sum.clientName||"(no name)")}</b> · ${esc(sum.clientCompany)} · ${esc(sum.clientEmail||"no email")} · rep: ${esc(sum.salesRep||"—")}</p>
+        <div style="overflow-x:auto">${sumTable(sum)}</div>${sum.clientEmail?"":'<p class="hint" style="color:var(--crit);margin:8px 0 0">This invoice has no client email. Add it in Sales Navigator first.</p>'}
+        ${ACC.some(a=>String(a.invoiceNumber).toUpperCase()===String(sum.invoiceNumber).toUpperCase()&&a.status!=="cancelled")?'<p class="hint" style="margin:8px 0 0">This invoice has already been sent for acceptance; preparing it again creates a new version (withdraw the old one first if it changed).</p>':""}</fieldset>`};
+  $("#n-inv").addEventListener("change",show);$("#n-inv").addEventListener("input",()=>{if(summarize($("#n-inv").value.trim()))show()});if(inv)show();
+  $("#n-save").onclick=async()=>{
+    if(!sum){derr("Pick an invoice with order lines.");return}
+    if(!sum.clientEmail){derr("This invoice has no client email.");return}
+    if(!ACC_FULL&&sum.salesRep!==MYNAME){derr("You can only prepare your own invoices.");return}
+    const p=readPay();if(!p.ok){derr(p.msg);return}
+    const now=new Date().toISOString(),id=newToken();
+    const data={...sum,terms:{version:terms.version,effectiveDate:terms.effectiveDate,company:terms.company,sections:terms.sections},payment:p.payment,message:$("#n-msg").value.trim(),
+      status:"draft",createdAt:now,createdBy:me.email,createdByName:MYNAME,updatedAt:now,history:[{at:now,by:MYNAME,what:"Prepared"}]};
+    try{await db.collection("acceptances").doc(id).set(data);close();openAcc(id,true)}catch(e){derr(e&&e.code==="permission-denied"?"You don't have permission to do that.":"Couldn't save. Try again.")}
+  };
+}
+function emailFor(a){
+  const first=String(a.clientName||"").trim().split(/\s+/)[0]||"there",prov=PROV[a.payment&&a.payment.provider]||"";
+  return {subject:`Order ${a.invoiceNumber} from Aurora Promotions: please review and accept`,
+    body:`Hi ${first},\n\nThank you for your order. Please review the order summary and our Terms & Conditions, and accept the order here:\n${acceptUrl(a._id)}\n\n${a.payment&&a.payment.url?`Once accepted, you can pay the invoice securely online${prov?` with ${prov}`:""} from the same page.\n\n`:""}If anything needs changing, just reply to this email.\n\nBest regards,\n${a.salesRep||MYNAME}\nAurora Promotions`};
+}
+function openAcc(id,justMade){
+  const a=ACC.find(x=>x._id===id)||null;
+  if(!a){if(justMade){setTimeout(()=>openAcc(id),300);}return}
+  const rep=isRep(a),canEdit=ACC_FULL||rep,locked=a.status==="accepted"||a.status==="paid";
+  const em=emailFor(a),hist=[...(a.history||[])].reverse();
+  const viaGmail=rep&&GMAIL.available();
+  const close=drawer(`Invoice ${esc(a.invoiceNumber)} · <span class="st ${a.status}">${ST_L[a.status]}</span>`,`
+    <p style="margin:0"><b>${esc(a.clientName)}</b> · ${esc(a.clientCompany)} · ${esc(a.clientEmail)} · rep: ${esc(a.salesRep||"—")}</p>
+    ${a.status==="accepted"||a.status==="paid"?`<fieldset style="border-color:var(--good-ink)"><legend>Accepted</legend><p style="margin:0">By <b>${esc(a.acceptedName)}</b> on ${esc(fmtT(a.acceptedAt))} · Terms &amp; Conditions version ${esc(a.terms.version)}</p>
+      <p class="hint" style="margin:4px 0 0">Recorded with Google's server time. This record can't be changed.</p></fieldset>`:""}
+    ${!rep&&["draft","sent"].includes(a.status)?`<div class="banner"><p><b>Only ${esc(a.salesRep||"the invoice's rep")} can send this to the client.</b> It's prepared and waiting for them.</p></div>`:""}
+    <fieldset><legend>Order summary</legend><div style="overflow-x:auto">${sumTable(a)}</div></fieldset>
+    ${canEdit&&!locked&&a.status!=="cancelled"?payFields(a.payment)+`<label class="ap-field"><span>Message to the client</span><textarea id="a-msg">${esc(a.message||"")}</textarea></label><div><button class="ap-btn ap-small" id="a-upd">Save changes</button></div>`
+      :a.payment&&a.payment.url?`<p style="margin:0">Payment: ${esc(PROV[a.payment.provider]||"")} · <a href="${esc(a.payment.url)}" target="_blank" rel="noopener">payment link</a></p>`:""}
+    ${rep&&["draft","sent"].includes(a.status)?`<fieldset><legend>${a.status==="draft"?"Send to the client":"Send again"}</legend>
+      <div class="ap-field"><span>Subject</span><input id="e-sub" value="${esc(em.subject)}" style="background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px"></div>
+      <label class="ap-field" style="margin-top:8px"><span>Message</span><textarea id="e-body" style="min-height:200px">${esc(em.body)}</textarea></label>
+      <div class="sendrow" style="margin-top:10px">${viaGmail?`<button class="ap-btn ap-primary" id="e-approve">Approve &amp; send to ${esc(a.clientEmail)}</button><span class="hint">from ${esc(GMAIL.address())}</span>`:""}
+        <button class="ap-btn${viaGmail?" ap-small":""}" id="e-open">Open in Gmail</button><button class="ap-btn${viaGmail?" ap-small":""}" id="e-sent">I sent it</button><button class="ap-btn ap-small" id="e-copy">Copy client link</button></div>
+      <p class="hint" style="margin:6px 0 0">${viaGmail?"Two clicks: the second confirms the recipient. ":""}The client's page: <a href="${esc(acceptUrl(a._id))}" target="_blank" rel="noopener">preview</a></p></fieldset>`:""}
+    ${a.status==="accepted"&&canEdit?`<fieldset><legend>Payment received</legend><div class="sendrow"><label class="ap-field"><span>Date paid</span><input type="date" id="p-date" value="${new Date().toLocaleDateString("en-CA")}"></label><button class="ap-btn ap-primary" id="p-paid" style="align-self:flex-end">Mark as paid</button></div>
+      <p class="hint" style="margin:6px 0 0">Also fills in "Date invoice paid by client" on the invoice in Sales Navigator.</p></fieldset>`:""}
+    <fieldset><legend>History</legend><div class="hist">${hist.map(h=>`<div><b>${esc(fmtT(h.at))}</b> · ${esc(h.what)} <span class="hint">(${esc(h.by)})</span></div>`).join("")}</div></fieldset>`,
+    '<button class="ap-btn" id="a-close">Close</button><span style="flex:1"></span>'+(canEdit&&["draft","sent"].includes(a.status)?'<button class="ap-btn ap-danger" id="a-wd">Withdraw</button>':""));
+  $("#a-close").onclick=close;
+  const push=(what,extra)=>{const now=new Date().toISOString();return db.collection("acceptances").doc(a._id).update(Object.assign({updatedAt:now,updatedBy:me.email,history:[...(a.history||[]),{at:now,by:MYNAME,what}]},extra||{}))};
+  const fail=e=>derr(e&&e.code==="permission-denied"?"You don't have permission to do that.":(e&&e.message)||"Couldn't save. Try again.");
+  if($("#a-upd"))$("#a-upd").onclick=async()=>{const p=readPay();if(!p.ok){derr(p.msg);return}try{await push("Details updated",{payment:p.payment,message:$("#a-msg").value.trim()});APP.toast("Saved");close();openAcc(a._id)}catch(e){fail(e)}};
+  if($("#a-wd")){let armed=false;$("#a-wd").onclick=async()=>{if(!armed){armed=true;$("#a-wd").textContent="Click again to withdraw (the client's link stops working)";return}try{await push("Withdrawn",{status:"cancelled"});APP.toast("Withdrawn");close()}catch(e){fail(e)}}}
+  const markSent=how=>push(how,{status:"sent",sentAt:new Date().toISOString(),sentBy:me.email});
+  if($("#e-copy"))$("#e-copy").onclick=async()=>{try{await navigator.clipboard.writeText(acceptUrl(a._id));APP.toast("Link copied")}catch(e){derr("Couldn't copy: "+acceptUrl(a._id))}};
+  if($("#e-open"))$("#e-open").onclick=()=>{const e=encodeURIComponent;window.open(`https://mail.google.com/mail/?view=cm&fs=1&authuser=${e(me.email)}&to=${e(a.clientEmail)}&su=${e($("#e-sub").value)}&body=${e($("#e-body").value)}`,"_blank","noopener")};
+  if($("#e-sent"))$("#e-sent").onclick=async()=>{try{await markSent(a.status==="sent"?"Sent again (by hand)":"Sent to the client (by hand)");APP.toast("Marked as sent");close()}catch(e){fail(e)}};
+  if($("#e-approve")){let armed=false;$("#e-approve").onclick=async()=>{
+    if(!armed){armed=true;$("#e-approve").textContent=`Click again to send to ${a.clientEmail}`;return}
+    const b=$("#e-approve");b.disabled=true;b.textContent="Sending…";derr("");
+    try{await GMAIL.send({to:a.clientEmail,subject:$("#e-sub").value,body:$("#e-body").value});
+      await markSent(`${a.status==="sent"?"Sent again":"Sent"} from ${GMAIL.address()} (approved by ${MYNAME})`);APP.toast(`Sent to ${a.clientEmail}`);close()}
+    catch(e){armed=false;b.disabled=false;b.textContent=`Approve & send to ${a.clientEmail}`;fail(e)}}}
+  if($("#p-paid"))$("#p-paid").onclick=async()=>{
+    const d=$("#p-date").value;if(!d){derr("Pick the date paid.");return}
+    try{await push(`Marked as paid (${d})`,{status:"paid",paidAt:d,paidBy:me.email});
+      let note="";
+      if(SALES!=="none"){try{for(const o of ORD.filter(o=>String(o.orderNumber||"").trim().toUpperCase()===String(a.invoiceNumber).toUpperCase()))await db.collection("orders").doc(o._id).update({invoicePaidDate:d})}
+        catch(e){note=" (couldn't update the invoice in Sales Navigator: ask the rep or a sales lead)"}}
+      APP.toast("Marked as paid"+note);close()}catch(e){fail(e)}};
+}
+// ?invoice=<#> (from Sales Navigator) starts one; ?id=<token> opens one
+let accParam=new URLSearchParams(location.search);
+function handleAccParams(){
+  if(!accParam||!accLoaded||!loaded||(SALES!=="none"&&!ordLoaded))return;
+  const inv=accParam.get("invoice"),id=accParam.get("id");accParam=null;
+  if(!inv&&!id)return;history.replaceState(null,"",location.pathname);ui.view="send";render();
+  if(id)openAcc(id);else{const ex=ACC.find(a=>String(a.invoiceNumber).toUpperCase()===inv.toUpperCase()&&a.status!=="cancelled");if(ex)openAcc(ex._id);else openNew(inv)}
+}
+let ordLoaded=false;
+(ACC_FULL?db.collection("acceptances"):db.collection("acceptances").where("salesRep","==",MYNAME)).onSnapshot(s=>{ACC=s.docs.map(d=>({...d.data(),_id:d.id}));accLoaded=true;if(ui.view==="send")render();handleAccParams()},()=>{accLoaded=true;render()});
+if(SALES!=="none"){
+  db.doc("settings/config").get().then(s=>{if(s.exists)SCFG={...SCFG,...s.data()}}).catch(()=>{});
+  (SALES==="full"?db.collection("orders"):db.collection("orders").where("salesRep","==",MYNAME)).onSnapshot(s=>{ORD=s.docs.map(d=>({...d.data(),_id:d.id}));ordLoaded=true;handleAccParams()},()=>{ordLoaded=true});
+}
 $("#tabs").onclick=e=>{const v=e.target.dataset?.v;if(v){ui.view=v;if(v!=="terms")viewing=null;render()}};
-db.collection("terms").onSnapshot(s=>{VERS=s.docs.map(d=>d.data()).sort((a,b)=>b.version-a.version);loaded=true;render()},()=>{loaded=true;render()});
+db.collection("terms").onSnapshot(s=>{VERS=s.docs.map(d=>d.data()).sort((a,b)=>b.version-a.version);loaded=true;render();handleAccParams()},()=>{loaded=true;render()});
 $("#page").hidden=false;render();
 });
 </script>
