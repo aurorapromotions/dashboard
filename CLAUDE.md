@@ -78,6 +78,6 @@ netProfit    = grossProfit â commission â platformFee â taxAdj
 
 - Live: sign-in (Google + email/password), Team & Access, roles, Sales Navigator (Customers report, editable dropdown lists, per-order delivery days, Invoice # naming), Handbook. Admin sign-in tested live in the user's Chrome; rep and password logins not yet tested live.
 - Firebase console work can be done in the user's Chrome via the Claude in Chrome extension (Chrome profile ihsan@aurorapromotions.ca is signed in to Firebase).
-- Copies: GitHub (master), `C:\Users\Dell\Desktop\Sales Navigator` (working copy), `D:\Aurora Promotions Dashboard` (backup clone; `Update this copy from GitHub.bat` pulls the latest).
+- Copies: GitHub (master), `C:\Users\Dell\Desktop\Sales Navigator` (working copy), `D:\Aurora Promotions Dashboard\Project` (backup clone; `D:\Aurora Promotions Dashboard\Update this copy from GitHub.bat` pulls the latest; data backups go in `D:\Aurora Promotions Dashboard\Data backups`).
 - Real data: reps on orders are "Ihsan Ali" and "Shahzaib"; some product names contain a replacement character (�) from an earlier CSV import.
 - Next: Phase 3 (Projects). Open question: are projects client orders or internal work?
