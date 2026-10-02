@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Order Acceptance · Aurora Promotions Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/core.css">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script>window.PAGE={tool:"acceptance",base:"../"}</script>
+<script src="../assets/core.js"></script>
+<script src="terms-default.js"></script>
+<style>
+/* Layout: tabs (Terms & Conditions / Edit / Versions / Client acceptance); the terms read like a document; editing is a list of section cards. */
+.head{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.head>div{flex:1 1 300px}
+.tabs{display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:9px;margin-bottom:16px;width:max-content;max-width:100%;flex-wrap:wrap}
+.tabs button{border:0;background:transparent;padding:6px 14px;border-radius:7px;cursor:pointer;font-weight:600;color:var(--ink-2)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.doc{max-width:820px;padding:32px 36px;line-height:1.6;font-size:15px}
+@media (max-width:600px){.doc{padding:20px 18px}}
+.doc h2{font-family:var(--f-display);font-size:24px;margin:0 0 2px}
+.doc .meta{color:var(--muted);font-size:13px;margin-bottom:18px}
+.doc h3{font-size:16px;margin:22px 0 6px}
+.doc p{margin:0 0 8px;color:var(--ink-2)}
+.doc .co{font-size:13px;color:var(--ink-2);margin-bottom:18px}
+.toc{columns:2;column-gap:28px;font-size:13px;margin:0 0 8px;padding-left:18px;color:var(--ink-2)}
+@media (max-width:600px){.toc{columns:1}}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.spacer{flex:1}
+.banner{background:var(--warn-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.banner p{margin:0}
+.sec{padding:14px 16px;margin-bottom:10px}
+.sec .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.sec input{flex:1;font-weight:700;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px}
+.sec textarea{width:100%;min-height:120px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;font:inherit;line-height:1.5;resize:vertical}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 12px}
+.hint{font-size:12px;color:var(--muted)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+tbody tr:last-child td{border-bottom:0}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--surface-2)}
+.pill{display:inline-flex;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--good-soft);color:var(--good-ink)}
+@media print{
+  .ap-bar,.head,.tabs,.bar,.banner,.noprint{display:none!important}
+  body{background:#fff}.card{border:0}.doc{padding:0;max-width:none}
+}
+</style>
+</head><body>
+<main class="ap-wrap" id="page" hidden>
+  <div class="head"><div><h1 class="ap-h1">Order Acceptance</h1><p class="ap-muted" style="margin:0">Terms &amp; Conditions that clients accept with each order and invoice.</p></div></div>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-v="terms">Terms &amp; Conditions</button>
+    <button role="tab" data-v="edit" id="tab-edit" hidden>Edit</button>
+    <button role="tab" data-v="versions">Versions</button>
+    <button role="tab" data-v="send">Client acceptance</button>
+  </nav>
+  <section id="v-terms"></section>
+  <section id="v-edit" hidden></section>
+  <section id="v-versions" hidden></section>
+  <section id="v-send" hidden>
+    <div class="card" style="padding:20px;max-width:820px">
+      <h2 style="font-family:var(--f-display);font-size:20px;margin:0 0 6px">Coming next: send an order for acceptance</h2>
+      <p class="ap-muted">From an invoice in Sales Navigator, the rep will send the client a private link (from their own Gmail, after their approval) showing the order summary, these Terms &amp; Conditions and the Stripe/Square invoice. The client ticks "I accept" and types their name; the dashboard records who accepted, when, and which version of the terms. Payment marks the invoice as paid.</p>
+      <p class="ap-muted" style="margin:0">Until then, you can share the terms with clients using <b>Print / Save as PDF</b> on the Terms &amp; Conditions tab.</p>
+    </div>
+  </section>
+</main>
+<script>
+APP.ready.then(()=>{
+"use strict";
+const db=APP.fs,esc=APP.esc,FULL=APP.level("acceptance")==="full",me=APP.member;
+const $=s=>document.querySelector(s);
+let VERS=[],loaded=false,viewing=null,draft=null;
+const ui={view:"terms"};
+const latest=()=>VERS[0]||null;
+const fmtD=d=>d?new Date(d+"T12:00").toLocaleDateString("en-CA",{year:"numeric",month:"long",day:"numeric"}):"";
+function fillVars(t,co){return String(t||"").replace(/\{company\}/g,co.name||"Aurora Promotions").replace(/\{province\}/g,co.province||"Ontario")}
+function docHtml(v,label){
+  const co=v.company||{};
+  return `<article class="card doc"><h2>Terms &amp; Conditions</h2>
+    <div class="meta">${esc(co.name||"Aurora Promotions")} · ${label} · effective ${esc(fmtD(v.effectiveDate))}</div>
+    <div class="co">${[co.address,co.email,co.phone,co.website].filter(Boolean).map(esc).join(" · ")}</div>
+    <ol class="toc">${v.sections.map((s,i)=>`<li><a href="#s${i}">${esc(s.title)}</a></li>`).join("")}</ol>
+    ${v.sections.map((s,i)=>`<h3 id="s${i}">${i+1}. ${esc(s.title)}</h3>${fillVars(s.body,co).split(/\n+/).map(p=>`<p>${esc(p)}</p>`).join("")}`).join("")}</article>`;
+}
+function render(){
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===ui.view));
+  ["terms","edit","versions","send"].forEach(v=>$("#v-"+v).hidden=v!==ui.view);
+  $("#tab-edit").hidden=!FULL;
+  if(!loaded){$("#v-"+ui.view).innerHTML='<div class="card" style="padding:30px">Loading…</div>';return}
+  if(ui.view==="terms")renderTerms();else if(ui.view==="edit")renderEdit();else if(ui.view==="versions")renderVersions();
+}
+function renderTerms(){
+  const v=viewing||latest();
+  const isDraft=!v;
+  const shown=v||{...DEFAULT_TERMS,effectiveDate:new Date().toLocaleDateString("en-CA")};
+  $("#v-terms").innerHTML=`${isDraft?`<div class="banner"><p><b>Starting draft, not yet published.</b> ${FULL?"Review it on the Edit tab (add your business address, email and phone), then publish it as version 1.":"An admin will publish the first version."} This draft is a practical starting point, not legal advice; have a lawyer review it.</p></div>`:""}
+    ${viewing&&viewing!==latest()?`<div class="banner"><p>You're viewing an older version (v${viewing.version}). <a href="#" id="to-latest">Show the current version</a></p></div>`:""}
+    <div class="bar noprint"><button class="ap-btn" id="print">Print / Save as PDF</button>${FULL?'<button class="ap-btn" id="go-edit">Edit</button>':""}<span class="spacer"></span>${v?`<span class="hint">Version ${v.version} · published by ${esc(v.createdByName||v.createdBy)}${v.note?` · ${esc(v.note)}`:""}</span>`:""}</div>
+    ${docHtml(shown,v?`Version ${v.version}`:"Draft")}`;
+  $("#print").onclick=()=>window.print();
+  if($("#go-edit"))$("#go-edit").onclick=()=>{ui.view="edit";render()};
+  if($("#to-latest"))$("#to-latest").onclick=e=>{e.preventDefault();viewing=null;render()};
+}
+function renderEdit(){
+  if(!draft){const b=latest()||DEFAULT_TERMS;draft={company:{...DEFAULT_TERMS.company,...(b.company||{})},sections:b.sections.map(s=>({...s}))}}
+  const co=draft.company;
+  $("#v-edit").innerHTML=`<div class="banner"><p>Changes are saved as a <b>new version</b>; earlier versions stay exactly as they were, so you always know which terms a client accepted. Use <code>{company}</code> and <code>{province}</code> to fill in your business name and province.</p></div>
+    <div class="card sec"><b>Business details</b><div class="fg" style="margin-top:8px">
+      ${[["name","Business name"],["address","Address"],["email","Email"],["phone","Phone"],["website","Website"],["province","Province (governing law)"]].map(([k,l])=>`<label class="ap-field"><span>${l}</span><input data-co="${k}" value="${esc(co[k]||"")}"></label>`).join("")}</div></div>
+    <div id="secs">${draft.sections.map((s,i)=>`<div class="card sec"><div class="row"><span class="hint">${i+1}.</span><input data-t="${i}" value="${esc(s.title)}" aria-label="Section title">
+      <button class="ap-btn ap-small" data-up="${i}"${i?"":" disabled"} aria-label="Move up">↑</button><button class="ap-btn ap-small" data-down="${i}"${i<draft.sections.length-1?"":" disabled"} aria-label="Move down">↓</button><button class="ap-btn ap-small ap-danger" data-del="${i}">Remove</button></div>
+      <textarea data-b="${i}" aria-label="Section text">${esc(s.body)}</textarea></div>`).join("")}</div>
+    <div class="bar"><button class="ap-btn" id="add">+ Add section</button><button class="ap-btn" id="reset">Start again from the default terms</button></div>
+    <div class="card sec"><div class="fg"><label class="ap-field"><span>Effective date</span><input type="date" id="eff" value="${new Date().toLocaleDateString("en-CA")}"></label>
+      <label class="ap-field" style="grid-column:span 2"><span>What changed (for the version history)</span><input id="note" placeholder="e.g. Added force majeure for carrier strikes"></label></div>
+      <div class="bar" style="margin:12px 0 0"><button class="ap-btn ap-primary" id="publish">Publish as version ${(latest()?latest().version:0)+1}</button><button class="ap-btn" id="preview">Preview</button><span class="hint" id="perr" style="color:var(--crit)"></span></div></div>`;
+  const ed=$("#v-edit");
+  ed.oninput=e=>{const d=e.target.dataset;if(d.co)draft.company[d.co]=e.target.value;if(d.t!==undefined)draft.sections[+d.t].title=e.target.value;if(d.b!==undefined)draft.sections[+d.b].body=e.target.value};
+  ed.onclick=e=>{const d=e.target.dataset;const sw=(a,b)=>{[draft.sections[a],draft.sections[b]]=[draft.sections[b],draft.sections[a]];renderEdit()};
+    if(d.del!==undefined){if(confirm(`Remove "${draft.sections[+d.del].title}"?`)){draft.sections.splice(+d.del,1);renderEdit()}}
+    else if(d.up!==undefined)sw(+d.up,+d.up-1);else if(d.down!==undefined)sw(+d.down,+d.down+1)};
+  $("#add").onclick=()=>{draft.sections.push({title:"New section",body:""});renderEdit();const t=document.querySelectorAll("[data-t]");t[t.length-1].select()};
+  $("#reset").onclick=()=>{if(confirm("Replace your edits with the default terms?")){draft={company:{...draft.company},sections:DEFAULT_TERMS.sections.map(s=>({...s}))};renderEdit()}};
+  $("#preview").onclick=()=>{const w=window.open("","_blank");if(!w)return;w.document.write(`<!doctype html><meta charset="utf-8"><title>Preview</title><link rel="stylesheet" href="${location.href.replace(/[^/]*$/,"")}../assets/core.css"><style>${document.querySelector("style").textContent}</style><main class="ap-wrap">${docHtml({...draft,effectiveDate:$("#eff").value},"Preview")}</main>`);w.document.close()};
+  $("#publish").onclick=async()=>{
+    const secs=draft.sections.map(s=>({title:s.title.trim(),body:s.body.trim()})).filter(s=>s.title&&s.body);
+    if(!secs.length){$("#perr").textContent="Add at least one section with a title and text.";return}
+    const eff=$("#eff").value;if(!eff){$("#perr").textContent="Pick an effective date.";return}
+    const version=(latest()?latest().version:0)+1;
+    const btn=$("#publish");btn.disabled=true;
+    try{await db.collection("terms").doc("v"+version).set({version,effectiveDate:eff,company:draft.company,sections:secs,note:$("#note").value.trim(),
+        createdAt:new Date().toISOString(),createdBy:me.email,createdByName:me.name||me.email});
+      draft=null;viewing=null;ui.view="terms";render();APP.toast(`Version ${version} published`);}
+    catch(e){btn.disabled=false;$("#perr").textContent=e&&e.code==="permission-denied"?"You don't have permission to publish terms.":"Couldn't save. Check your connection and try again."}
+  };
+}
+function renderVersions(){
+  $("#v-versions").innerHTML=`<div class="card" style="max-width:820px"><table><thead><tr><th>Version</th><th>Effective</th><th>Published by</th><th>What changed</th></tr></thead><tbody>
+    ${VERS.map((v,i)=>`<tr class="click" data-v="${v.version}"><td><b>v${v.version}</b> ${i===0?'<span class="pill">Current</span>':""}</td><td>${esc(fmtD(v.effectiveDate))}</td><td>${esc(v.createdByName||v.createdBy)}</td><td>${esc(v.note||"—")}</td></tr>`).join("")
+    ||'<tr><td colspan="4" class="hint" style="padding:24px">No published versions yet.</td></tr>'}</tbody></table></div>`;
+  $("#v-versions").onclick=e=>{const r=e.target.closest("[data-v]");if(r){viewing=VERS.find(v=>v.version===+r.dataset.v);ui.view="terms";render()}};
+}
+$("#tabs").onclick=e=>{const v=e.target.dataset?.v;if(v){ui.view=v;if(v!=="terms")viewing=null;render()}};
+db.collection("terms").onSnapshot(s=>{VERS=s.docs.map(d=>d.data()).sort((a,b)=>b.version-a.version);loaded=true;render()},()=>{loaded=true;render()});
+$("#page").hidden=false;render();
+});
+</script>
+</body></html>

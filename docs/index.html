@@ -11,14 +11,26 @@
 <script>window.PAGE={tool:"home",base:""}</script>
 <script src="assets/core.js"></script>
 </head><body>
+<style>
+.today{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:18px}
+.today a{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--ink);text-decoration:none;display:flex;flex-direction:column;gap:2px}
+.today a:hover{border-color:var(--accent)}
+.today .l{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.today .v{font-size:26px;font-weight:700;line-height:1.2}
+.today .v.late{color:var(--crit)}
+.today .s{font-size:12px;color:var(--ink-2)}
+.ap-h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:26px 0 0}
+</style>
 <main class="ap-wrap" id="home" hidden>
   <h1 class="ap-h1" id="hello"></h1>
-  <p class="ap-muted" style="margin:0">Choose a tool to get started.</p>
-  <div class="ap-tiles" id="tiles"></div>
+  <p class="ap-muted" style="margin:0" id="today-sub">Here's what needs your attention.</p>
+  <div class="today" id="today"></div>
+  <h2 class="ap-h2">Tools</h2>
+  <div class="ap-tiles" id="tiles" style="margin-top:10px"></div>
 </main>
 <script>
 APP.ready.then(()=>{
-  const esc=APP.esc,m=APP.member;
+  const esc=APP.esc,m=APP.member,db=APP.fs,lv=k=>APP.level(k),NAME=m.name||m.email;
   document.getElementById("hello").textContent="Hello, "+(m.name||m.email).split(/[\s(]/)[0];
   const tiles=APP.TOOLS.filter(t=>APP.isAdmin||APP.level(t.k)!=="none").map(t=>{
     const lv=APP.level(t.k);
@@ -29,6 +41,38 @@ APP.ready.then(()=>{
   if(APP.isAdmin)tiles.push(`<a class="ap-tile" href="team/"><h2>Team &amp; Access</h2><p>Add admins and team members, set their login and which tools they can use.</p><span class="ap-pill admin">Admins only</span></a>`);
   document.getElementById("tiles").innerHTML=tiles.join("")||`<p class="ap-muted">You don't have access to any tools yet. Ask an admin.</p>`;
   document.getElementById("home").hidden=false;
+
+  // "Today": one card per tool the person uses, each linking into that tool
+  const TODAY=new Date().toLocaleDateString("en-CA"),MONTH=TODAY.slice(0,7);
+  const money=v=>new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0}).format(Math.round(v||0));
+  const cards={};
+  const paint=()=>{const order=["sales","follow","tasks","season"];const html=order.filter(k=>cards[k]).map(k=>cards[k]).join("");
+    document.getElementById("today").innerHTML=html;document.getElementById("today-sub").hidden=!html};
+  const card=(k,href,l,v,s,late)=>{cards[k]=`<a href="${href}"><span class="l">${esc(l)}</span><span class="v${late?" late":""}">${esc(v)}</span><span class="s">${esc(s)}</span></a>`;paint()};
+  if(lv("sales")!=="none"){
+    Promise.all([db.doc("settings/config").get().catch(()=>null),(lv("sales")==="full"?db.collection("orders"):db.collection("orders").where("salesRep","==",NAME)).get()]).then(([cfg,snap])=>{
+      const c=cfg&&cfg.exists?cfg.data():{},q=c.quoteStatus||"Quote",x=c.cancelledStatus||"Cancelled";
+      const ls=snap.docs.map(d=>d.data()).filter(o=>(o.orderDate||"").startsWith(MONTH)&&o.status!==q&&o.status!==x);
+      const inv=new Set(ls.map(o=>String(o.orderNumber||"").toUpperCase()).filter(Boolean)).size;
+      card("sales","sales/",lv("sales")==="full"?"Sales this month":"Your sales this month",money(ls.reduce((s,o)=>s+(+o.customerUnitPrice||0)*(+o.quantity||0),0)),`${inv} invoice${inv===1?"":"s"} · before tax`);
+    }).catch(()=>{});
+  }
+  if(lv("clients")!=="none"){
+    db.collection("outreach").where("owner","==",NAME).get().then(s=>{
+      const due=s.docs.map(d=>d.data()).filter(o=>o.status==="sent"&&o.nextFollowUp&&o.nextFollowUp<=TODAY).length;
+      card("follow","clients/","Follow-ups due",String(due),due?"Clients waiting for your follow-up":"Nothing due today",due>0);
+    }).catch(()=>{});
+    db.collection("seasons").get().then(s=>{
+      const now=s.docs.map(d=>d.data()).filter(x=>x.outreachStart<=TODAY&&(!x.outreachEnd||x.outreachEnd>=TODAY)).sort((a,b)=>String(a.outreachEnd).localeCompare(String(b.outreachEnd)));
+      if(now.length)card("season","clients/","Season outreach",now[0].name,`until ${new Date(now[0].outreachEnd+"T12:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}`);
+    }).catch(()=>{});
+  }
+  if(lv("projects")!=="none"){
+    (lv("projects")==="full"?db.collection("tasks").where("assignee","==",m.email):db.collection("tasks").where("team","array-contains",m.email)).get().then(s=>{
+      const open=s.docs.map(d=>d.data()).filter(t=>t.assignee===m.email&&t.status!=="done"),late=open.filter(t=>t.dueDate&&t.dueDate<TODAY).length;
+      card("tasks","projects/","Your open tasks",String(open.length),late?`${late} late`:"None late",late>0);
+    }).catch(()=>{});
+  }
 });
 </script>
 </body></html>

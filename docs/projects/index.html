@@ -281,6 +281,7 @@ function openProject(id){
   const ts=p?tasksOf(p._id).sort(sortTasks):[];
   const canSales=SALES!=="none";
   const ro=!FULL;
+  let pickedEmail="";
   const info=ro?`<div class="fg">
       ${fld("","Invoice #",`<span class="ro">${esc(m.invoiceNumber||"—")}</span>`)}${fld("","Client company",`<span class="ro">${esc(m.clientCompany||"—")}</span>`)}
       ${fld("","Client contact",`<span class="ro">${esc(m.clientContact||"—")}</span>`)}${fld("","Status",`<span class="ro">${esc(m.status||"—")}</span>`)}
@@ -299,7 +300,7 @@ function openProject(id){
       ${!p&&SET.steps.length?`<label class="chk wide" style="padding:0"><input type="checkbox" id="p-steps" checked> Add the standard steps as tasks (${SET.steps.length}): ${esc(SET.steps.join(", "))}</label>`:""}</div>`;
   const tasksHtml=p?`<fieldset><legend>Tasks (${ts.length})</legend>${ts.length?`<div class="tw"><table><thead><tr><th>Task</th><th>Status</th><th>Due</th><th>Priority</th><th>Progress</th><th>Assigned to</th></tr></thead><tbody>${ts.map(t=>taskRow(t,"who")).join("")}</tbody></table></div>`:'<p class="hint" style="margin:0">No tasks yet.</p>'}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${canAddTo(p)?'<button class="ap-btn ap-small" id="p-addtask">+ Add task</button>':""}${FULL&&SET.steps.length?'<button class="ap-btn ap-small" id="p-addsteps">+ Add standard steps</button>':""}
-      ${p.invoiceNumber&&canSales?`<a class="ap-btn ap-small" href="../sales/?invoice=${encodeURIComponent(p.invoiceNumber)}">Open invoice in Sales Navigator</a>`:""}</div></fieldset>`:"";
+      ${p.invoiceNumber&&canSales?`<a class="ap-btn ap-small" href="../sales/?invoice=${encodeURIComponent(p.invoiceNumber)}">Open invoice in Sales Navigator</a>`:""}${clientLink(m)}</div></fieldset>`:"";
   const close=drawer(p?esc(p.name):"New project",info+tasksHtml+'<p class="err" id="perr" role="alert" style="color:var(--crit);margin:0"></p>',
     (FULL?`<button class="ap-btn ap-primary" id="p-save">${p?"Save changes":"Create project"}</button>`:"")+`<button class="ap-btn" id="p-close">${FULL?"Cancel":"Close"}</button>`+(FULL&&p?'<span class="spacer"></span><button class="ap-btn ap-danger" id="p-del">Delete project</button>':""));
   $("#p-close").onclick=close;
@@ -311,7 +312,7 @@ function openProject(id){
   // fill details from the picked invoice
   $("#p-inv").addEventListener("change",()=>{const o=INVOICES.find(x=>x.inv.toUpperCase()===$("#p-inv").value.trim().toUpperCase());if(!o)return;
     const setIf=(sel,v)=>{if(v&&!$(sel).value)$(sel).value=v};
-    setIf("#p-co",o.company);setIf("#p-ct",o.contact);setIf("#p-rep",o.rep);setIf("#p-due",o.inHands);
+    setIf("#p-co",o.company);pickedEmail=o.email||pickedEmail;setIf("#p-ct",o.contact);setIf("#p-rep",o.rep);setIf("#p-due",o.inHands);
     if(!$("#p-name").value)$("#p-name").value=[o.company,o.products].filter(Boolean).join(" – ").slice(0,90)});
   $("#p-save").onclick=async()=>{
     const v=s=>$(s).value.trim();
@@ -319,7 +320,7 @@ function openProject(id){
     if(!name){$("#perr").textContent="Give the project a name, or at least the client company or invoice #.";return}
     const lead=v("#p-lead");
     const team=[...new Set([...[...document.querySelectorAll("[data-team]:checked")].map(c=>c.dataset.team),...(lead?[lead]:[]),...ts.map(t=>t.assignee).filter(Boolean)])];
-    const data={name,invoiceNumber:v("#p-inv"),clientCompany:v("#p-co"),clientContact:v("#p-ct"),status:$("#p-st").value,priority:$("#p-pr").value,
+    const data={name,invoiceNumber:v("#p-inv"),clientEmail:pickedEmail||m.clientEmail||"",clientCompany:v("#p-co"),clientContact:v("#p-ct"),status:$("#p-st").value,priority:$("#p-pr").value,
       startDate:v("#p-start"),dueDate:v("#p-due"),lead,salesRep:v("#p-rep"),team,description:$("#p-desc").value.trim(),updatedAt:new Date().toISOString(),updatedBy:me};
     const btn=$("#p-save");btn.disabled=true;
     try{
@@ -340,6 +341,25 @@ function openProject(id){
     if(!armed){armed=true;$("#p-del").textContent=`Click again to delete the project and its ${ts.length} task${ts.length===1?"":"s"}`;return}
     try{for(const t of ts)await db.collection("tasks").doc(t._id).delete();await db.collection("projects").doc(p._id).delete();APP.toast("Project deleted");close()}
     catch(e){$("#perr").textContent=err(e)}}}
+}
+// link to the client's page in Clients & Seasons (same key rule as that tool: email, else name + company)
+function clientLink(p){
+  if(APP.level("clients")==="none"||!(p.clientEmail||p.clientContact))return "";
+  const slug=s=>String(s||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  const e=String(p.clientEmail||"").trim().toLowerCase();
+  const key=e&&e.includes("@")?e.replace(/\//g,"_"):"nc--"+slug(p.clientContact)+"--"+slug(p.clientCompany);
+  return `<a class="ap-btn ap-small" href="../clients/?client=${encodeURIComponent(key)}">Open client</a>`;
+}
+// ?project=<id> opens a project; ?new=<invoice #> starts a new project for that invoice (links from Sales Navigator)
+let paramsDone=false;
+function handleParams(){
+  if(paramsDone)return;const q=new URLSearchParams(location.search);
+  const pid=q.get("project"),inv=q.get("new");
+  if(pid){if(!loadedP)return;paramsDone=true;history.replaceState(null,"",location.pathname);ui.view="projects";render();openProject(pid);return}
+  if(inv&&FULL){if(!loadedP||(SALES!=="none"&&!INVOICES.length))return;paramsDone=true;history.replaceState(null,"",location.pathname);
+    const ex=P.find(p=>String(p.invoiceNumber||"").toUpperCase()===inv.toUpperCase());if(ex){openProject(ex._id);return}
+    openProject(null);const el=$("#p-inv");if(el){el.value=inv;el.dispatchEvent(new Event("change"))}return}
+  paramsDone=true;
 }
 async function addSteps(pid,assignee,team){
   const now=new Date().toISOString();const base=tasksOf(pid).length;
@@ -420,7 +440,7 @@ db.collection("members").onSnapshot(snap=>{
   render();
 },()=>{});
 db.doc("settings/projects").onSnapshot(s=>{const d=s.exists?s.data():{};SET={statuses:d.statuses&&d.statuses.length?d.statuses:DEF.statuses,steps:Array.isArray(d.steps)?d.steps:DEF.steps};render()},()=>{});
-(FULL?db.collection("projects"):db.collection("projects").where("team","array-contains",me)).onSnapshot(snap=>{P=snap.docs.map(d=>Object.assign({},d.data(),{_id:d.id}));loadedP=true;render()},
+(FULL?db.collection("projects"):db.collection("projects").where("team","array-contains",me)).onSnapshot(snap=>{P=snap.docs.map(d=>Object.assign({},d.data(),{_id:d.id}));loadedP=true;render();handleParams()},
   ()=>{loadedP=true;APP.toast("Couldn't load projects. Reload the page.");render()});
 (FULL?db.collection("tasks"):db.collection("tasks").where("team","array-contains",me)).onSnapshot(snap=>{T=snap.docs.map(d=>Object.assign({},d.data(),{_id:d.id}));loadedT=true;render()},
   ()=>{loadedT=true;render()});
@@ -429,9 +449,9 @@ if(SALES!=="none"){
   const q=SALES==="full"?db.collection("orders"):db.collection("orders").where("salesRep","==",APP.member.name);
   q.get().then(snap=>{const m=new Map();
     snap.docs.forEach(d=>{const o=d.data(),k=String(o.orderNumber||"").trim();if(!k)return;const x=m.get(k.toUpperCase())||{inv:k,company:"",contact:"",rep:"",inHands:"",products:[],date:""};
-      x.company=x.company||o.companyName||"";x.contact=x.contact||o.clientName||"";x.rep=x.rep||o.salesRep||"";x.inHands=x.inHands||o.inHandsDate||"";x.date=x.date||o.orderDate||"";
+      x.company=x.company||o.companyName||"";x.email=x.email||o.clientEmail||"";x.contact=x.contact||o.clientName||"";x.rep=x.rep||o.salesRep||"";x.inHands=x.inHands||o.inHandsDate||"";x.date=x.date||o.orderDate||"";
       if(o.productName)x.products.push(o.productName);m.set(k.toUpperCase(),x)});
-    INVOICES=[...m.values()].map(x=>({...x,products:x.products.slice(0,3).join(", ")})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    INVOICES=[...m.values()].map(x=>({...x,products:x.products.slice(0,3).join(", ")})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));handleParams();
   }).catch(()=>{});
 }
 $("#page").hidden=false;render();

@@ -9,7 +9,7 @@ const OWNER="ihsan@aurorapromotions.ca";
 const TOOLS=[
   {k:"sales",l:"Sales Navigator",href:"sales/",desc:"Orders, sales and profit by month, rep and customer.",ready:true},
   {k:"clients",l:"Clients & Seasons",href:"clients/",desc:"Your clients, seasonal outreach (golf, holidays…) with catalog links, and follow-up reminders.",ready:true},
-  {k:"acceptance",l:"Order Acceptance",href:"acceptance/",desc:"Order summary, Terms and Conditions, client acceptance and invoices.",ready:false},
+  {k:"acceptance",l:"Order Acceptance",href:"acceptance/",desc:"Terms & Conditions (versioned, printable). Next: clients accept orders online with the invoice.",ready:true},
   {k:"projects",l:"Projects",href:"projects/",desc:"One project per client order: tasks, assignments, due dates and progress.",ready:true},
   {k:"handbook",l:"Handbook",href:"handbook/",desc:"How the dashboard works, how to change it, move it to your own website, or rebuild it.",ready:true,readOnly:true},
 ];

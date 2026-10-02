@@ -136,7 +136,7 @@ const DEF_BODY="Hi {first_name},\n\n{season} is coming up, and we've put togethe
 const ST={todo:"To contact",sent:"Sent · waiting",replied:"Replied",quote:"Quote requested",ordered:"Ordered",not_interested:"Not interested",no_reply:"No reply",stopped:"Follow-ups off",skipped:"Skipped"};
 const OUTCOMES=["replied","quote","ordered","not_interested","stopped","skipped"];
 
-let CL={},SEAS=[],OUT={},ORD=[],SET=structuredClone(DEF),PEOPLE=[],loaded={cl:false,se:false,out:false,ord:SALES==="none"};
+let PROJS=[],CL={},SEAS=[],OUT={},ORD=[],SET=structuredClone(DEF),PEOPLE=[],loaded={cl:false,se:false,out:false,ord:SALES==="none"};
 let SALESCFG={quote:"Quote",cancelled:"Cancelled"};
 const ui={view:"reach",season:"",owner:FULL?"all":MYNAME,tag:"all",q:""};
 try{Object.assign(ui,JSON.parse(localStorage.getItem("cs-ui")||"{}"))}catch(e){}
@@ -269,7 +269,7 @@ function renderReach(){
     ${rows.map(({c,o,st})=>`<tr class="click" data-client="${esc(c._id)}"><td><b>${esc(c.name||c.email||"(no name)")}</b><small>${esc(c.email||"no email")}</small></td>
       <td>${esc(c.company||"—")}${inSameSeasonLastYear(c,s)?'<br><span class="tag hot">Ordered this season last year</span>':""}${(c.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</td>
       ${FULL?`<td>${esc(c.owner||"—")}</td>`:""}<td class="nowrap">${c.stats&&c.stats.lastOrder?fmtD(c.stats.lastOrder):"—"}</td>
-      <td><span class="pill ${st}">${st==="due"?`Follow-up ${((o.followups||0)+1)} due`:ST[st]}</span></td>
+      <td><span class="pill ${st}">${st==="due"?`Follow-up ${((o.followups||0)+1)} due`:ST[st]}</span>${o&&o.invoiceNumber&&SALES!=="none"?`<br><a href="../sales/?invoice=${encodeURIComponent(o.invoiceNumber)}">${esc(o.invoiceNumber)}</a>`:""}</td>
       <td class="nowrap">${o&&o.status==="sent"?`<span class="${st==="due"?"late":""}">${fmtD(o.nextFollowUp)}</span>`:"—"}</td>
       <td class="nowrap"><button class="ap-btn ap-small" data-write="${esc(c._id)}">${c.owner!==MYNAME&&["todo","due"].includes(st)?"Prepare draft":st==="due"?"Write follow-up":st==="todo"?"Write email":"Open"}</button>${o&&o.draft?'<br><span class="tag hot">Draft ready</span>':""}</td></tr>`).join("")
       ||`<tr><td colspan="7" class="empty">No clients for this season${ui.owner!=="all"?" and rep":""}. ${FULL?"Change the season's target, or open a client and add them.":""}</td></tr>`}
@@ -296,13 +296,13 @@ function renderSeasons(){
   const el=$("#v-seasons");
   if(!loaded.se){el.innerHTML='<div class="card empty">Loading…</div>';return}
   const list=[...SEAS].sort((a,b)=>String(b.outreachStart).localeCompare(String(a.outreachStart)));
-  el.innerHTML=`<div class="card"><div class="tw"><table><thead><tr><th>Season</th><th>Outreach</th><th>Targets</th><th class="n">Clients</th><th class="n">Contacted</th><th class="n">Replied / quote</th><th class="n">Ordered</th></tr></thead><tbody>
+  el.innerHTML=`<div class="card"><div class="tw"><table><thead><tr><th>Season</th><th>Outreach</th><th>Targets</th><th class="n">Clients</th><th class="n">Contacted</th><th class="n">Replied / quote</th><th class="n">Ordered</th>${SALES!=="none"?'<th class="n">Sales after outreach</th>':""}</tr></thead><tbody>
     ${list.map(s=>{const t=targeted(s).filter(ownerOk),os=t.map(c=>outStatus(OUT[outId(s._id,c._id)]));const tg=s.target||{mode:"all"};
       return `<tr class="click" data-season="${esc(s._id)}"><td><b>${esc(s.name)}</b><small>${s.catalogUrl?`<a href="${esc(s.catalogUrl)}" target="_blank" rel="noopener">${esc(s.catalogUrl.replace(/^https?:\/\//,"").slice(0,48))}</a>`:"No catalog link"}</small></td>
       <td class="nowrap">${fmtD(s.outreachStart)} – ${fmtD(s.outreachEnd)}${isActive(s)?(s.outreachStart<=TODAY?' <span class="pill sent">Now</span>':' <span class="pill">Upcoming</span>'):""}</td>
       <td>${tg.mode==="tags"?(tg.tags||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join(""):tg.mode==="lastyear"?"Ordered this season last year":tg.mode==="buyers"?"Clients who have ordered":tg.mode==="manual"?"Hand-picked":"All clients"}</td>
-      <td class="n">${t.length}</td><td class="n">${os.filter(x=>x!=="todo"&&x!=="skipped").length}</td><td class="n">${os.filter(x=>x==="replied"||x==="quote").length}</td><td class="n">${os.filter(x=>x==="ordered").length}</td></tr>`}).join("")
-      ||`<tr><td colspan="7" class="empty"><h3>No seasons yet</h3>${FULL?"Click <b>+ New season</b>.":""}</td></tr>`}</tbody></table></div></div>`;
+      <td class="n">${t.length}</td><td class="n">${os.filter(x=>x!=="todo"&&x!=="skipped").length}</td><td class="n">${os.filter(x=>x==="replied"||x==="quote").length}</td><td class="n">${os.filter(x=>x==="ordered").length}</td>${SALES!=="none"?`<td class="n">${money(seasonSales(s,t))}</td>`:""}</tr>`}).join("")
+      ||`<tr><td colspan="8" class="empty"><h3>No seasons yet</h3>${FULL?"Click <b>+ New season</b>.":""}</td></tr>`}</tbody></table></div></div>`;
 }
 function renderSettings(){
   if(document.activeElement&&document.activeElement.closest("#v-settings"))return;
@@ -384,7 +384,7 @@ function openCompose(cid){
       :(FULL?`<div class="sendrow"><button class="ap-btn ap-primary" id="m-draft">Save draft for ${esc(c.owner||"the rep")}</button></div>`:"")}
     ${canEdit?`<fieldset><legend>Outcome</legend><div class="sendrow">${OUTCOMES.map(k=>`<button class="ap-btn ap-small" data-outcome="${k}">${ST[k]}</button>`).join("")}</div>
       <p class="hint" style="margin:8px 0 0">Marking an outcome stops the reminders.</p>
-      <label class="ap-field" style="margin-top:10px"><span>Note (optional)</span>${inp("m-note","")}</label></fieldset>`:""}
+      <div class="fg" style="margin-top:10px">${fld("Note (optional)",inp("m-note",""))}${fld("Invoice # (if they ordered)",inp("m-inv",o&&o.invoiceNumber||""))}</div></fieldset>`:""}
     ${hist.length?`<fieldset><legend>History</legend><div class="hist">${hist.map(h=>`<div><b>${fmtD(h.at.slice(0,10))}</b> · ${esc(h.what)}${h.note?` · ${esc(h.note)}`:""} <span class="hint">(${esc(h.by)})</span></div>`).join("")}</div></fieldset>`:""}`,
     '<button class="ap-btn" id="m-close">Close</button><span class="spacer"></span><button class="ap-btn ap-small" id="m-client">Client details</button>');
   $("#m-close").onclick=close;$("#m-client").onclick=()=>{close();openClient(cid)};
@@ -406,6 +406,7 @@ function openCompose(cid){
     const now=new Date().toISOString(),next={...base(),updatedAt:now,updatedBy:me.email};
     next.history=[...(next.history||[]),{at:now,by:MYNAME,what,note:note()}];
     if(status==="sent")markSent(next,now);else{next.status=status;next.nextFollowUp=""}
+    const inv=$("#m-inv")?$("#m-inv").value.trim():"";if(inv)next.invoiceNumber=inv;
     try{await save(next);
       APP.toast(status==="sent"?(next.status==="no_reply"?"Saved. No more follow-ups for this client this season.":`Saved. Reminder on ${fmtD(next.nextFollowUp)}.`):"Saved");close()}
     catch(e){derr(err(e))}
@@ -448,6 +449,22 @@ async function checkReplies(interactive){
 }
 
 
+// links to the client's invoices (Sales Navigator) and projects (Projects)
+function invoicesOf(st){
+  if(!st)return [];const m=new Map();
+  st.lines.forEach(o=>{const k=String(o.orderNumber||"").trim();if(k&&!m.has(k.toUpperCase()))m.set(k.toUpperCase(),{inv:k,date:o.orderDate||""})});
+  return [...m.values()].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+}
+function projectsOf(c,st){
+  const invs=new Set(invoicesOf(st).map(x=>x.inv.toUpperCase())),em=String(c.email||"").toLowerCase();
+  return PROJS.filter(p=>invs.has(String(p.invoiceNumber||"").toUpperCase())||(em&&String(p.clientEmail||"").toLowerCase()===em));
+}
+// sales from a season: counted orders by its clients from the outreach start until 60 days after it ends (before tax)
+function seasonSales(s,clients){
+  if(!s.outreachStart)return 0;const to=addDays(s.outreachEnd||s.outreachStart,60);
+  return clients.reduce((sum,c)=>sum+(c.stats?c.stats.lines.filter(o=>o.status!==SALESCFG.quote&&o.status!==SALESCFG.cancelled&&o.orderDate>=s.outreachStart&&o.orderDate<=to)
+    .reduce((x,o)=>x+(+o.customerUnitPrice||0)*(+o.quantity||0),0):0),0);
+}
 function openClient(cid){
   const c=cid?clientList().find(x=>x._id===cid):{virtual:true,owner:MYNAME,tags:[]};if(cid&&!c)return;
   const isNew=!cid,canEdit=FULL||c.owner===MYNAME||isNew;
@@ -465,7 +482,9 @@ function openClient(cid){
     ${!isNew&&FULL&&st&&st.recentRep&&st.recentRep!==c.owner?`<p class="hint" style="margin:0">Owner is the rep on their first order (${esc(st.firstRep||"—")}). Most recent order: ${esc(st.recentRep)}.</p>`:""}
     ${st&&SALES!=="none"?`<fieldset><legend>Orders</legend><div class="kpis" style="margin:0"><div class="kpi"><div class="l">Invoices</div><div class="v">${st.invoices}</div></div><div class="kpi"><div class="l">Sales</div><div class="v">${money(st.sales)}</div><div class="s">before tax</div></div>
       <div class="kpi"><div class="l">First order</div><div class="v" style="font-size:16px">${fmtD(st.firstOrder)}</div></div><div class="kpi"><div class="l">Last order</div><div class="v" style="font-size:16px">${fmtD(st.lastOrder)}</div></div></div>
-      <p class="hint" style="margin:8px 0 0">Usually orders in: ${st.months.map(m=>MONTHS[m-1]).join(", ")||"—"}${st.invoices?` · <a href="../sales/?invoice=${encodeURIComponent(st.lines[st.lines.length-1].orderNumber||"")}">Last invoice in Sales Navigator</a>`:""}</p></fieldset>`:""}
+      <p class="hint" style="margin:8px 0 0">Usually orders in: ${st.months.map(m=>MONTHS[m-1]).join(", ")||"—"}</p>
+      ${invoicesOf(st).length?`<p style="margin:8px 0 0;font-size:13px">Invoices: ${invoicesOf(st).map(x=>`<a href="../sales/?invoice=${encodeURIComponent(x.inv)}">${esc(x.inv)}</a> <span class="hint">${fmtD(x.date)}</span>`).join(" · ")}</p>`:""}</fieldset>`:""}
+    ${!isNew&&projectsOf(c,st).length?`<fieldset><legend>Projects</legend><div class="hist">${projectsOf(c,st).map(p=>`<div><a href="../projects/?project=${encodeURIComponent(p._id)}"><b>${esc(p.name)}</b></a> · ${esc(p.status||"")}${p.invoiceNumber?` · ${esc(p.invoiceNumber)}`:""}${p.dueDate?` · due ${fmtD(p.dueDate)}`:""}</div>`).join("")}</div></fieldset>`:""}
     ${!isNew?`<fieldset><legend>Seasons</legend>${seasonsHist.length?`<div class="hist">${seasonsHist.map(({o,s})=>`<div><b>${esc(s.name)}</b> · <span class="pill ${outStatus(o)}">${ST[o.status]||o.status}</span>${o.sentAt?` · emailed ${fmtD(o.sentAt.slice(0,10))}`:""}</div>`).join("")}</div>`:'<p class="hint" style="margin:0">Not contacted in any season yet.</p>'}
       ${canEdit&&active.length?`<div class="sendrow" style="margin-top:10px">${sel("c-addseason",active.map(s=>[s._id,s.name]),ui.season)}<button class="ap-btn ap-small" id="c-add">Add to this season's list</button></div>`:""}</fieldset>`:""}`,
     (canEdit?`<button class="ap-btn ap-primary" id="c-save">${isNew?"Add client":"Save"}</button>`:"")+'<button class="ap-btn" id="c-close">Close</button>'+(FULL&&!isNew&&!c.virtual?'<span class="spacer"></span><button class="ap-btn ap-danger" id="c-del">Delete client</button>':""));
@@ -541,13 +560,19 @@ db.collection("members").onSnapshot(snap=>{
   PEOPLE=snap.docs.map(d=>Object.assign({},d.data(),{email:d.id})).filter(x=>x.active===true&&(x.role==="admin"||["limited","full"].includes((x.access||{}).sales)||["limited","full"].includes((x.access||{}).clients)))
     .map(x=>({email:x.email,name:x.name||x.email}));render()},()=>{});
 db.doc("settings/clients").onSnapshot(s=>{const d=s.exists?s.data():{};SET={...DEF,...d,types:d.types&&d.types.length?d.types:DEF.types,tags:Array.isArray(d.tags)?d.tags:DEF.tags};render()},()=>{});
-(FULL?db.collection("clients"):db.collection("clients").where("owner","==",MYNAME)).onSnapshot(snap=>{CL={};snap.docs.forEach(d=>{CL[d.id]={...d.data(),_id:d.id}});loaded.cl=true;render();syncFromOrders()},
+// projects, to show a client's projects (only for people with Projects access)
+if(APP.level("projects")!=="none")(APP.level("projects")==="full"?db.collection("projects"):db.collection("projects").where("team","array-contains",me.email)).onSnapshot(s=>{PROJS=s.docs.map(d=>({...d.data(),_id:d.id}))},()=>{});
+// ?client=<key> opens that client (links from Sales Navigator and Projects)
+let clientParam=new URLSearchParams(location.search).get("client");
+function openParamClient(){if(!clientParam||!loaded.cl||!loaded.ord)return;const k=clientParam;clientParam=null;history.replaceState(null,"",location.pathname);
+  if(clientList().some(c=>c._id===k)){ui.view="clients";render();openClient(k)}else APP.toast("That client isn't in your list.")}
+(FULL?db.collection("clients"):db.collection("clients").where("owner","==",MYNAME)).onSnapshot(snap=>{CL={};snap.docs.forEach(d=>{CL[d.id]={...d.data(),_id:d.id}});loaded.cl=true;render();syncFromOrders();openParamClient()},
   ()=>{loaded.cl=true;render()});
 db.collection("seasons").onSnapshot(snap=>{SEAS=snap.docs.map(d=>({...d.data(),_id:d.id}));loaded.se=true;render()},()=>{loaded.se=true;render()});
 (FULL?db.collection("outreach"):db.collection("outreach").where("owner","==",MYNAME)).onSnapshot(snap=>{OUT={};snap.docs.forEach(d=>{OUT[d.id]={...d.data(),_id:d.id}});if(!loaded.out)setTimeout(()=>checkReplies(false),500);loaded.out=true;render()},()=>{loaded.out=true;render()});
 if(SALES!=="none"){
   db.doc("settings/config").get().then(s=>{if(s.exists){const d=s.data();SALESCFG={quote:d.quoteStatus||"Quote",cancelled:d.cancelledStatus||"Cancelled"}}}).catch(()=>{});
-  (SALES==="full"?db.collection("orders"):db.collection("orders").where("salesRep","==",MYNAME)).onSnapshot(snap=>{ORD=snap.docs.map(d=>d.data());STATS=ordersByClient();loaded.ord=true;render();syncFromOrders()},()=>{loaded.ord=true;render()});
+  (SALES==="full"?db.collection("orders"):db.collection("orders").where("salesRep","==",MYNAME)).onSnapshot(snap=>{ORD=snap.docs.map(d=>d.data());STATS=ordersByClient();loaded.ord=true;render();syncFromOrders();openParamClient()},()=>{loaded.ord=true;render()});
 }
 $("#page").hidden=false;render();
 });

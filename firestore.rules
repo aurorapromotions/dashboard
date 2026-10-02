@@ -108,5 +108,14 @@ service cloud.firestore {
       allow read: if level('clients') != 'none';
       allow write: if full('clients');
     }
+
+    // ---------- Order Acceptance ----------
+    // terms/v{n}: published Terms & Conditions versions. Never changed or deleted once published,
+    // so it is always clear which version a client accepted.
+    match /terms/{id} {
+      allow read: if level('acceptance') != 'none';
+      allow create: if full('acceptance');
+      allow update, delete: if false;
+    }
   }
 }

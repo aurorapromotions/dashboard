@@ -345,6 +345,13 @@ let db=null,S=structuredClone(DEFAULT_SETTINGS);
 let ORDERS=[],loaded=false,dbState="loading";
 // access from the dashboard sign-in: full = all orders, delete and settings; limited = only orders where they are the sales rep, add and edit only
 let FULL=true,MY_REP="";
+// links to the other dashboard tools (only shown to people who can use them)
+let PROJ_ON=false,PROJ_FULL=false,CLIENTS_ON=false,PROJ={};
+const clientKey=(email,name,company)=>{const slug=s=>String(s||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  const e=String(email||"").trim().toLowerCase();return e&&e.includes("@")?e.replace(/\//g,"_"):"nc--"+slug(name)+"--"+slug(company)};
+function projCell(inv){const k=String(inv||"").trim().toUpperCase(),p=k&&PROJ[k];
+  if(p)return `<a href="../projects/?project=${encodeURIComponent(p._id)}">${esc(p.status||"Project")}</a>`;
+  return k&&PROJ_FULL?`<a href="../projects/?new=${encodeURIComponent(inv)}">+ Project</a>`:'<span class="note">—</span>'}
 const ui={tab:"dash",year:String(new Date().getFullYear()),month:"all",rep:"all",metric:"sales",search:"",ostatus:"all",orep:"all",oview:"orders",
   cyear:"all",crep:"all",cby:"company",cmetric:"sales",csort:"sales",cdesc:true,csearch:""};
 try{Object.assign(ui,JSON.parse(localStorage.getItem("sn-ui2")||"{}"))}catch(e){}
@@ -659,7 +666,7 @@ function openCustomer(key){
         ${stat("Days to deliver",a.dayN?Math.round(a.days/a.dayN)+" avg":"—")}</div>
       <div class="card" style="margin-top:12px"><h2>${ui.cyear==="all"?"Sales by year":"Sales by month, "+ui.cyear}</h2><div class="chart" id="cu-chart"></div></div>
       ${by==="company"?`<div class="card" style="margin-top:12px"><h2>Contacts (${contacts.length})</h2><div class="tbl-wrap"><table><thead><tr><th>Contact</th><th>Email</th><th>Phone</th><th class="n">Orders</th><th class="n">Sales</th><th class="n">Net profit</th><th>Last order</th></tr></thead><tbody>
-        ${contacts.map(c=>`<tr><td>${esc(c.name||"(No name)")}</td><td>${esc(c.email||"—")}</td><td>${esc(c.phone||"—")}</td><td class="n">${c.a.orders}</td><td class="n">${money(c.a.sales)}</td><td class="n${c.a.net<0?" neg":""}">${money(c.a.net)}</td><td>${esc(c.last||"—")}</td></tr>`).join("")||'<tr><td colspan="7" class="empty">No counted orders.</td></tr>'}</tbody></table></div></div>`:""}
+        ${contacts.map(c=>`<tr><td>${esc(c.name||"(No name)")}${CLIENTS_ON?` <a href="../clients/?client=${encodeURIComponent(clientKey(c.email,c.name,c.company))}">Client page</a>`:""}</td><td>${esc(c.email||"—")}</td><td>${esc(c.phone||"—")}</td><td class="n">${c.a.orders}</td><td class="n">${money(c.a.sales)}</td><td class="n${c.a.net<0?" neg":""}">${money(c.a.net)}</td><td>${esc(c.last||"—")}</td></tr>`).join("")||'<tr><td colspan="7" class="empty">No counted orders.</td></tr>'}</tbody></table></div></div>`:""}
       <div class="card" style="margin-top:12px"><h2>Orders (${orders.length})</h2><div class="sub">All statuses. Click an order to open it in the Orders tab.</div><div class="tbl-wrap"><table><thead><tr><th>Invoice #</th><th>Date</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>
         ${orders.map(([k,ls])=>{const o=ls[0],x=agg(ls);return `<tr class="click" data-ord="${esc(o.orderNumber||"")}"><td><b>${esc(o.orderNumber||"(no invoice #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(ls.map(l=>l.productName||"Untitled").join(", "))}</td><td>${esc(o.salesRep||"—")}</td><td><span class="pill ${statusCls(o.status||"Pending")}">${esc(o.status||"Pending")}</span></td><td class="n">${money2(x.sales)}</td><td class="n${x.gross<0?" neg":""}">${money2(x.gross)}</td><td class="n${x.net<0?" neg":""}">${money2(x.net)}</td></tr>`}).join("")}</tbody></table></div></div>
     </div></div></div>`;
@@ -696,11 +703,11 @@ function renderOrders(){
   const sampleTag=o=>o.sample?'<span class="tag">Example</span>':"";
   if(ui.oview==="orders"){
     const groups=groupOrders(list);
-    t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th><th class="n">Days to deliver</th></tr></thead><tbody>`+
+    t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th><th class="n">Days to deliver</th>${PROJ_ON?"<th>Project</th>":""}</tr></thead><tbody>`+
       (groups.length?groups.map(([k,ls])=>{const o=ls[0],g=agg(ls),items=ls.reduce((s,x)=>s+x._c.q,0);
         const on=g.onN?g.onT===g.onN:null;const prods=ls.map(x=>x.productName||"Untitled").join(", ");
-        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no invoice #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td><td class="n">${g.dayN?g.days:"—"}</td></tr>`}).join("")
-      :`<tr><td colspan="12" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
+        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no invoice #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td><td class="n">${g.dayN?g.days:"—"}</td>${PROJ_ON?`<td>${projCell(o.orderNumber)}</td>`:""}</tr>`}).join("")
+      :`<tr><td colspan="13" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
   }else{
     t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Product</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Cost/unit</th><th class="n">Price/unit</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>`+
       (list.length?list.map(o=>{const c=o._c;return `<tr class="click" data-id="${esc(o._id)}"><td>${esc(o.orderNumber||"(no invoice #)")}</td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(o.productName||"")}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(c.q)}</td><td class="n">${money2(c.costPerUnit)}</td><td class="n">${money2(num(o.customerUnitPrice))}</td><td class="n">${money2(c.totalPrice)}</td><td class="n${c.grossPnL<0?" neg":""}">${money2(c.grossPnL)}</td><td class="n${c.netPnL<0?" neg":""}">${money2(c.netPnL)}</td></tr>`}).join("")
@@ -943,6 +950,7 @@ $("#o-status").onchange=e=>{ui.ostatus=e.target.value;saveUi();renderOrders()};
 $("#o-rep").onchange=e=>{ui.orep=e.target.value;saveUi();renderOrders()};
 $("#o-view").onclick=e=>{const v=e.target.dataset?.v;if(v){ui.oview=v;saveUi();renderFilters();renderOrders()}};
 $("#orders-tbl").onclick=e=>{
+  if(e.target.closest("a"))return;
   const tr=e.target.closest("tr[data-id]");if(tr){const o=ORDERS.find(x=>x._id===tr.dataset.id);if(o)openForm(o);return}
   const g=e.target.closest("tr[data-order]");if(g){const k=g.dataset.order;const ls=ORDERS.filter(x=>orderKey(x)===k);
     if(ls.length===1)openForm(ls[0]);else{ui.oview="lines";ui.search=ls[0].orderNumber||"";$("#o-search").value=ui.search;saveUi();renderFilters();renderOrders()}}};
@@ -966,6 +974,11 @@ setTab(["dash","customers","orders","settings"].includes(ui.tab)?ui.tab:"dash");
   if(!FULL){$("#tab-settings").hidden=true;$("#btn-import").hidden=true;if(ui.tab==="settings")setTab("dash");
     $("#view-orders .note").textContent="You see the orders where you are the sales rep. Lines that share an Invoice # count as one order."}
   db.doc("settings/config").onSnapshot(s=>{S=Object.assign(structuredClone(DEFAULT_SETTINGS),s.exists?s.data():{});S.reps=[...(S.reps||[])];S.countStatuses=[...(S.countStatuses||[])];S.lists=Object.assign({},S.lists);S.cardPlatforms=[...(S.cardPlatforms||[])];if(ui.tab==="settings"&&!draftReps)renderSettings();renderAll()},()=>{});
+  if(window.APP&&APP.member){
+    CLIENTS_ON=APP.level("clients")!=="none";PROJ_ON=APP.level("projects")!=="none";PROJ_FULL=APP.level("projects")==="full";
+    if(PROJ_ON)(PROJ_FULL?db.collection("projects"):db.collection("projects").where("team","array-contains",APP.member.email)).onSnapshot(s=>{
+      PROJ={};s.docs.forEach(d=>{const p=d.data(),k=String(p.invoiceNumber||"").trim().toUpperCase();if(k)PROJ[k]={...p,_id:d.id}});if(loaded)renderAll()},()=>{});
+  }
   (FULL?db.collection("orders"):db.collection("orders").where("salesRep","==",MY_REP)).onSnapshot(snap=>{ORDERS=snap.docs.map(d=>({...d.data(),_id:d.id}));loaded=true;renderAll()},()=>{dbState="off";loaded=true;renderAll()});
 })();
 })();
