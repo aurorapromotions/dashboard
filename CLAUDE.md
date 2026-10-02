@@ -2,7 +2,7 @@
 
 Internal web dashboard ("mini ERP") for Aurora Promotions, a promotional products business. Private links (original Google Sheet, old claude.ai artifact) are in `CLAUDE.local.md`, which is not committed. The owner is not technical: explain in plain language, do the technical work for them.
 
-- Live: https://aurorapromotions.github.io/sales-navigator/ (GitHub Pages, `main` branch, `/docs` folder). Planned rename of the repo to `dashboard` → `/dashboard/` (needs the user's OK). Later the user may move hosting to their own server (aurorapromotions.ca, e.g. `dashboard.aurorapromotions.ca`); the site is static files, so it can be copied as-is.
+- Live: https://aurorapromotions.github.io/dashboard/ (GitHub repo aurorapromotions/dashboard, Pages from `main` branch, `/docs` folder). Later the user may move hosting to their own server (aurorapromotions.ca, e.g. `dashboard.aurorapromotions.ca`); the site is static files, so it can be copied as-is.
 - Data and logins: Firebase project `sales-navigator-1b716` (Spark/free plan, Firestore in northamerica-northeast2). Google sign-in enabled; `aurorapromotions.github.io` is an authorized domain. Public web config is in `docs/firebase-config.js` (not secret).
 - No Node/Python on this machine; no build step. Plain HTML/JS/CSS, Firebase compat SDK 10.14.1 from gstatic.
 
@@ -75,6 +75,7 @@ netProfit    = grossProfit − commission − platformFee − taxAdj
 
 ## Status (2026-10-02)
 
-- Phase 1 code is done and tested in demo mode as admin, sales lead and rep. **Not yet live.** Before pushing: (1) publish the new `firestore.rules` in the Firebase console, (2) enable Email/Password sign-in (Authentication → Sign-in method), (3) set the public-facing project name to "Aurora Promotions Dashboard" (it appears in password emails). The browser's Google session for the Firebase console had expired; the user must sign in themselves.
-- The repo rename to `dashboard` was blocked pending the user's explicit OK.
-- The session's files never got copied to `C:\Users\Dell\Desktop\Sales Navigator` (still empty); clone the repo there.
+- Phases 1 and 2 are live: sign-in (Google + email/password), Team & Access, roles, Sales Navigator with Customers report, editable dropdown lists, per-order delivery days. Tested in demo mode as admin, sales lead and rep; the live site still needs a real sign-in test by the user.
+- Firebase: Email/Password provider enabled, public-facing name "Aurora Promotions Dashboard", new rules published (2026-10-02). Firebase console work can be done in the user's Chrome via the Claude in Chrome extension (Chrome profile ihsan@aurorapromotions.ca is signed in to Firebase).
+- Repo renamed to aurorapromotions/dashboard; old /sales-navigator/ link no longer works.
+- Next: Phase 3 (Projects).
