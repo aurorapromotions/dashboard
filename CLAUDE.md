@@ -9,9 +9,9 @@ Internal web dashboard ("mini ERP") for Aurora Promotions, a promotional product
 ## Roadmap (agreed with the user, 2026-10-02)
 
 1. **Foundation** (done in code; see status below): one sign-in, Team & Access page, Sales Navigator moved in.
-2. **Sales Navigator upgrades:** Customers report (per client company and per contact: sales, orders, gross/net profit, avg order, last order, charts); every dropdown editable in Settings (priorities, acquisition channels, categories, decoration methods, shipping companies, payment platforms, statuses: "Quote" and "Cancelled" can be renamed, not deleted, since totals/refunds depend on them); fix days order→delivery (currently averaged per product line; should be per order, order date → last line's delivery date).
+2. **Sales Navigator upgrades:** Customers report (per client company and per contact: sales, orders, gross/net profit, avg order, last order, charts); every dropdown editable in Settings (priorities, acquisition channels, categories, decoration methods, shipping companies, payment platforms, statuses: "Quote" and "Cancelled" can be renamed, not deleted, since totals/refunds depend on them); fix days orderâdelivery (currently averaged per product line; should be per order, order date â last line's delivery date).
 3. **Projects:** admins/leads create projects and tasks, assign people, due dates, statuses (To do/In progress/Review/Done), comments, board + list + My tasks.
-4. **Leads (manual first):** lead list, assign to reps, draft → rep reviews → send, follow-up reminder every 2 days with no reply until the rep turns follow-ups off.
+4. **Leads (manual first):** lead list, assign to reps, draft â rep reviews â send, follow-up reminder every 2 days with no reply until the rep turns follow-ups off.
 5. **Connector + GoHighLevel:** a free Cloudflare Worker receives GHL webhooks (FB/Google leads) and sends approved emails/SMS via the GHL API; scheduled follow-up checks. Secrets (GHL key) live in the Worker, never in the site.
 6. **Order Acceptance + invoices:** client gets a private link with order summary + Terms & Conditions (editable, versioned) + Stripe/Square invoice; "I accept" + typed name stored with time and T&C version; payment webhook marks the order paid.
 7. **Claude drafts** for lead emails/follow-ups (user's Anthropic account, pay per use).
@@ -37,6 +37,7 @@ People are `members/{lowercase email}`: `{name, email, role: "admin"|"member", a
 | `docs/assets/core.js` | Shared by every page: Firebase init, sign-in screen (Google + email/password + reset), member lookup, access levels (`APP.level(tool)`), top bar, `window.claude` adapter. Tool list `TOOLS` lives here (set `ready:true` when a tool ships). Demo mode on localhost. |
 | `docs/assets/core.css` | Shared tokens (light/dark), top bar, sign-in card, tiles, buttons. |
 | `docs/team/index.html` | Team & Access (admins only): add/edit people, login type, role, per-tool access, on/off, send password email. |
+| `docs/handbook/index.html` | **Handbook** (tool key `handbook`, `readOnly:true`: access is "No access" or "Can read"; admins always): plain-language explanation of the logic, managing people, making changes, moving to aurorapromotions.ca, rebuilding from scratch, backups, costs, troubleshooting, history. **Keep it in sync whenever logic, setup or hosting changes.** |
 | `docs/sales/index.html` | Sales Navigator (originally the claude.ai artifact; still calls `window.claude.use("db"|"downloads")`, which core.js provides). Reads `APP.level("sales")`: limited users get a `where("salesRep","==",name)` query, a locked rep field, no delete/import/settings/sample removal. |
 | `docs/assets/example-orders.json` | 55 example lines / 34 orders (`sample: true`), for demo mode only. Made by `tools/make-examples.ps1`. |
 | `firestore.rules` | Security rules (see Access model). |
@@ -49,8 +50,8 @@ People are `members/{lowercase email}`: `{name, email, role: "admin"|"member", a
 
 ## Sales Navigator details
 
-- `orders/{id}`: one doc per **product line**; lines sharing an Order # are one order (`orderKey` = upper-trimmed Order #). Order-level fields (`order:true` in the `F` field list) are copied to sibling lines on save.
-- Order numbers: `counters/orders.next`, taken in a transaction on save (`assignOrderNumber`), never lower than the highest visible `ORD-####` + 1, so reps who can't see each other's orders never collide.
+- `orders/{id}`: one doc per **product line**; lines sharing an **Invoice #** are one order (`orderKey` = upper-trimmed Invoice #; stored in the field `orderNumber`). At Aurora invoice #, PO # and order # are the same thing, so the UI only says "Invoice #" and there is no separate PO field (old CSV headers "Order #"/"PO #" import as Invoice #). Order-level fields (`order:true` in the `F` field list) are copied to sibling lines on save.
+- Order numbers: `counters/orders.next`, taken in a transaction on save (`assignOrderNumber`), numbered `INV-####`, never lower than the highest visible `INV-`/`ORD-####` + 1, so reps who can't see each other's orders never collide.
 - `settings/config`: `reps[]`, `supplierTaxPct`, `customerTaxPct`, `platformFeePct`, `feeOn` ("card"/"all"), `deductCustomerTax`, `countStatuses[]`.
 - Statuses: Quote, Pending, Ordered, In Production, Shipped, Delivered, Cancelled. Totals count all but Quote and Cancelled (configurable).
 - CSV import/export by column label or alias (`al`); import finds the header row under title rows.
@@ -58,24 +59,25 @@ People are `members/{lowercase email}`: `{name, email, role: "admin"|"member", a
 Formulas (`calc(o)`):
 ```
 q            = Number of items
-base         = (unitCost + unitRunCharges) × q + setupCost + shippingCost + otherCosts
+base         = (unitCost + unitRunCharges) Ã q + setupCost + shippingCost + otherCosts
 costPerUnit  = base / q
-supplierTax  = base × supplierTaxPct%                  // not recoverable; part of total cost
-subtotal     = customerUnitPrice × q
-customerTax  = subtotal × customerTaxPct%
+supplierTax  = base Ã supplierTaxPct%                  // not recoverable; part of total cost
+subtotal     = customerUnitPrice Ã q
+customerTax  = subtotal Ã customerTaxPct%
 totalPrice   = subtotal + customerTax                   // "Total sales" includes customer tax
-platformFee  = "$" ? value : totalPrice × value%        // blank % → settings pct on card platforms
+platformFee  = "$" ? value : totalPrice Ã value%        // blank % â settings pct on card platforms
 refund       = status == "Cancelled" ? refundFee : 0
 totalCost    = base + supplierTax + refund              // no commission, no platform fee
-grossProfit  = totalPrice − totalCost
+grossProfit  = totalPrice â totalCost
 commission   = commissionValue ($, entered per line)
 taxAdj       = deductCustomerTax ? customerTax : 0
-netProfit    = grossProfit − commission − platformFee − taxAdj
+netProfit    = grossProfit â commission â platformFee â taxAdj
 ```
 
 ## Status (2026-10-02)
 
-- Phases 1 and 2 are live: sign-in (Google + email/password), Team & Access, roles, Sales Navigator with Customers report, editable dropdown lists, per-order delivery days. Tested in demo mode as admin, sales lead and rep; the live site still needs a real sign-in test by the user.
-- Firebase: Email/Password provider enabled, public-facing name "Aurora Promotions Dashboard", new rules published (2026-10-02). Firebase console work can be done in the user's Chrome via the Claude in Chrome extension (Chrome profile ihsan@aurorapromotions.ca is signed in to Firebase).
-- Repo renamed to aurorapromotions/dashboard; old /sales-navigator/ link no longer works.
-- Next: Phase 3 (Projects).
+- Live: sign-in (Google + email/password), Team & Access, roles, Sales Navigator (Customers report, editable dropdown lists, per-order delivery days, Invoice # naming), Handbook. Admin sign-in tested live in the user's Chrome; rep and password logins not yet tested live.
+- Firebase console work can be done in the user's Chrome via the Claude in Chrome extension (Chrome profile ihsan@aurorapromotions.ca is signed in to Firebase).
+- Copies: GitHub (master), `C:\Users\Dell\Desktop\Sales Navigator` (working copy), `D:\Aurora Promotions Dashboard` (backup clone; `Update this copy from GitHub.bat` pulls the latest).
+- Real data: reps on orders are "Ihsan Ali" and "Shahzaib"; some product names contain a replacement character (�) from an earlier CSV import.
+- Next: Phase 3 (Projects). Open question: are projects client orders or internal work?

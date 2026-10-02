@@ -205,7 +205,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
   <!-- ORDERS -->
   <section id="view-orders" hidden>
     <div class="toolbar">
-      <div class="field"><label for="o-search">Search</label><input type="search" id="o-search" placeholder="Order #, client, company, product"></div>
+      <div class="field"><label for="o-search">Search</label><input type="search" id="o-search" placeholder="Invoice #, client, company, product"></div>
       <div class="field" style="flex:0 1 150px"><label for="o-status">Status</label><select id="o-status"></select></div>
       <div class="field" style="flex:0 1 150px"><label for="o-rep">Sales rep</label><select id="o-rep"></select></div>
       <div class="field" style="flex:0 0 auto"><span class="lbl">View</span><div class="seg" id="o-view"><button data-v="orders" aria-pressed="true">By order</button><button data-v="lines" aria-pressed="false">By product line</button></div></div>
@@ -215,7 +215,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
       <button class="btn" id="btn-export">Export CSV</button>
     </div>
     <div class="card" style="padding:0"><div class="tbl-wrap" style="margin:0"><table id="orders-tbl"></table></div></div>
-    <p class="note" style="margin-top:10px">One row in your sheet = one product line. Lines that share an Order # count as one order. Import accepts a CSV downloaded from Google Sheets (File → Download → CSV); columns are matched by header name.</p>
+    <p class="note" style="margin-top:10px">One row in your sheet = one product line. Lines that share an Invoice # count as one order. Import accepts a CSV downloaded from Google Sheets (File → Download → CSV); columns are matched by header name.</p>
   </section>
 
   <!-- SETTINGS -->
@@ -278,16 +278,15 @@ const statuses=()=>opts("status");
 // the quote and cancelled statuses can be renamed but not removed: totals and refunds depend on them
 function statusCls(s){if(s===S.cancelledStatus)return "crit";if(s===S.quoteStatus)return "";return s==="Delivered"?"good":s==="Pending"?"warn":"info"}
 
-/* Field list. order:true = shared by every product line in the same Order #.
+/* Field list. order:true = shared by every product line in the same Invoice #.
    al = other header names accepted on import (your original sheet's columns). */
 const F=[
  {s:"Order",k:"priority",l:"Priority",t:"select",list:"priority",order:true},
- {s:"Order",k:"orderNumber",l:"Order #",order:true,al:["Order#","Order Number","Invoice #"]},
+ {s:"Order",k:"orderNumber",l:"Invoice #",order:true,al:["Order #","Order#","Order Number","Invoice#","Invoice Number","Client PO #","PO #"]},
  {s:"Order",k:"status",l:"Status",t:"select",list:"status",order:true},
  {s:"Order",k:"salesRep",l:"Sales Rep",t:"rep",order:true},
  {s:"Order",k:"orderDate",l:"Order Date",t:"date",order:true},
  {s:"Order",k:"inHandsDate",l:"In-Hands Date",t:"date",order:true},
- {s:"Order",k:"poNumber",l:"Client PO #",order:true,al:["PO #"]},
  {s:"Order",k:"cac",l:"Customer Acquisition Channel",t:"select",list:"cac",order:true,al:["Customer Acquisition Channel (CAC)"]},
  {s:"Client",k:"clientName",l:"Client Name",order:true},
  {s:"Client",k:"clientTitle",l:"Client Designation",order:true,al:["Client Title"]},
@@ -661,8 +660,8 @@ function openCustomer(key){
       <div class="card" style="margin-top:12px"><h2>${ui.cyear==="all"?"Sales by year":"Sales by month, "+ui.cyear}</h2><div class="chart" id="cu-chart"></div></div>
       ${by==="company"?`<div class="card" style="margin-top:12px"><h2>Contacts (${contacts.length})</h2><div class="tbl-wrap"><table><thead><tr><th>Contact</th><th>Email</th><th>Phone</th><th class="n">Orders</th><th class="n">Sales</th><th class="n">Net profit</th><th>Last order</th></tr></thead><tbody>
         ${contacts.map(c=>`<tr><td>${esc(c.name||"(No name)")}</td><td>${esc(c.email||"—")}</td><td>${esc(c.phone||"—")}</td><td class="n">${c.a.orders}</td><td class="n">${money(c.a.sales)}</td><td class="n${c.a.net<0?" neg":""}">${money(c.a.net)}</td><td>${esc(c.last||"—")}</td></tr>`).join("")||'<tr><td colspan="7" class="empty">No counted orders.</td></tr>'}</tbody></table></div></div>`:""}
-      <div class="card" style="margin-top:12px"><h2>Orders (${orders.length})</h2><div class="sub">All statuses. Click an order to open it in the Orders tab.</div><div class="tbl-wrap"><table><thead><tr><th>Order #</th><th>Date</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>
-        ${orders.map(([k,ls])=>{const o=ls[0],x=agg(ls);return `<tr class="click" data-ord="${esc(o.orderNumber||"")}"><td><b>${esc(o.orderNumber||"(no #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(ls.map(l=>l.productName||"Untitled").join(", "))}</td><td>${esc(o.salesRep||"—")}</td><td><span class="pill ${statusCls(o.status||"Pending")}">${esc(o.status||"Pending")}</span></td><td class="n">${money2(x.sales)}</td><td class="n${x.gross<0?" neg":""}">${money2(x.gross)}</td><td class="n${x.net<0?" neg":""}">${money2(x.net)}</td></tr>`}).join("")}</tbody></table></div></div>
+      <div class="card" style="margin-top:12px"><h2>Orders (${orders.length})</h2><div class="sub">All statuses. Click an order to open it in the Orders tab.</div><div class="tbl-wrap"><table><thead><tr><th>Invoice #</th><th>Date</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>
+        ${orders.map(([k,ls])=>{const o=ls[0],x=agg(ls);return `<tr class="click" data-ord="${esc(o.orderNumber||"")}"><td><b>${esc(o.orderNumber||"(no invoice #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(ls.map(l=>l.productName||"Untitled").join(", "))}</td><td>${esc(o.salesRep||"—")}</td><td><span class="pill ${statusCls(o.status||"Pending")}">${esc(o.status||"Pending")}</span></td><td class="n">${money2(x.sales)}</td><td class="n${x.gross<0?" neg":""}">${money2(x.gross)}</td><td class="n${x.net<0?" neg":""}">${money2(x.net)}</td></tr>`}).join("")}</tbody></table></div></div>
     </div></div></div>`;
   const close=()=>{$("#drawer-root").innerHTML="";hideTip();document.removeEventListener("keydown",esck)};
   const esck=e=>{if(e.key==="Escape")close()};document.addEventListener("keydown",esck);
@@ -689,7 +688,7 @@ function renderOrders(){
   if(!ORDERS.length){t.innerHTML=`<tbody><tr><td class="empty"><h3>No orders yet</h3>Click <b>+ New order</b> to log your first sale, or <b>Import CSV</b> to bring in your Google Sheet.</td></tr></tbody>`;return}
   const q=ui.search.trim().toLowerCase();
   let list=ORDERS.filter(o=>(ui.ostatus==="all"||(o.status||"Pending")===ui.ostatus)&&repMatch(o,ui.orep));
-  if(q)list=list.filter(o=>["orderNumber","companyName","clientName","productName","poNumber","supplierName","clientEmail","supplierItem","websiteItem"].some(k=>String(o[k]||"").toLowerCase().includes(q)));
+  if(q)list=list.filter(o=>["orderNumber","companyName","clientName","productName","supplierName","clientEmail","supplierItem","websiteItem"].some(k=>String(o[k]||"").toLowerCase().includes(q)));
   list.sort((a,b)=>(b.orderDate||"").localeCompare(a.orderDate||"")||String(b.orderNumber||"").localeCompare(String(a.orderNumber||"")));
   const repCell=o=>o.salesRep?`<span class="dot" style="background:${repColor(o.salesRep)}"></span>${esc(o.salesRep)}`:'<span class="note">Unassigned</span>';
   const stCell=o=>{const st=o.status||"Pending";return `<span class="pill ${statusCls(st)}">${esc(st)}</span>`};
@@ -697,14 +696,14 @@ function renderOrders(){
   const sampleTag=o=>o.sample?'<span class="tag">Example</span>':"";
   if(ui.oview==="orders"){
     const groups=groupOrders(list);
-    t.innerHTML=`<thead><tr><th>Order #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th><th class="n">Days to deliver</th></tr></thead><tbody>`+
+    t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th><th class="n">Days to deliver</th></tr></thead><tbody>`+
       (groups.length?groups.map(([k,ls])=>{const o=ls[0],g=agg(ls),items=ls.reduce((s,x)=>s+x._c.q,0);
         const on=g.onN?g.onT===g.onN:null;const prods=ls.map(x=>x.productName||"Untitled").join(", ");
-        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td><td class="n">${g.dayN?g.days:"—"}</td></tr>`}).join("")
+        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no invoice #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td><td class="n">${g.dayN?g.days:"—"}</td></tr>`}).join("")
       :`<tr><td colspan="12" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
   }else{
-    t.innerHTML=`<thead><tr><th>Order #</th><th>Order date</th><th>Client company</th><th>Product</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Cost/unit</th><th class="n">Price/unit</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>`+
-      (list.length?list.map(o=>{const c=o._c;return `<tr class="click" data-id="${esc(o._id)}"><td>${esc(o.orderNumber||"(no #)")}</td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(o.productName||"")}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(c.q)}</td><td class="n">${money2(c.costPerUnit)}</td><td class="n">${money2(num(o.customerUnitPrice))}</td><td class="n">${money2(c.totalPrice)}</td><td class="n${c.grossPnL<0?" neg":""}">${money2(c.grossPnL)}</td><td class="n${c.netPnL<0?" neg":""}">${money2(c.netPnL)}</td></tr>`}).join("")
+    t.innerHTML=`<thead><tr><th>Invoice #</th><th>Order date</th><th>Client company</th><th>Product</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Cost/unit</th><th class="n">Price/unit</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>`+
+      (list.length?list.map(o=>{const c=o._c;return `<tr class="click" data-id="${esc(o._id)}"><td>${esc(o.orderNumber||"(no invoice #)")}</td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(o.productName||"")}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(c.q)}</td><td class="n">${money2(c.costPerUnit)}</td><td class="n">${money2(num(o.customerUnitPrice))}</td><td class="n">${money2(c.totalPrice)}</td><td class="n${c.grossPnL<0?" neg":""}">${money2(c.grossPnL)}</td><td class="n${c.netPnL<0?" neg":""}">${money2(c.netPnL)}</td></tr>`}).join("")
       :`<tr><td colspan="12" class="empty">No product lines match these filters.</td></tr>`)+`</tbody>`;
   }
 }
@@ -714,12 +713,12 @@ let editing=null;
 // order numbers come from one shared counter, so reps who can't see each other's orders never reuse a number
 async function assignOrderNumber(){
   const ref=db.doc("counters/orders");
-  let seen=1001;ORDERS.forEach(o=>{const m=String(o.orderNumber||"").match(/^ORD-(\d+)$/i);if(m&&+m[1]>=seen)seen=+m[1]+1});
+  let seen=1001;ORDERS.forEach(o=>{const m=String(o.orderNumber||"").match(/^(?:INV|ORD)-(\d+)$/i);if(m&&+m[1]>=seen)seen=+m[1]+1});
   return db.runTransaction(async tx=>{
     const s=await tx.get(ref);
     const next=Math.max(s.exists?num(s.data().next):0,seen);
     if(s.exists)tx.update(ref,{next:next+1});else tx.set(ref,{next:next+1});
-    return "ORD-"+next;
+    return "INV-"+next;
   });
 }
 function openForm(o,prefill){
@@ -732,7 +731,7 @@ function openForm(o,prefill){
   const secs=[...new Set(F.map(f=>f.s))];
   $("#drawer-root").innerHTML=`<div class="overlay" id="ov"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="dr-t">
     <div class="drawer-h"><h2 id="dr-t">${id?"Edit product line":prefill?"Add product to order":"New order"}</h2><button class="btn ghost" id="dr-x" aria-label="Close">✕</button></div>
-    <div class="drawer-b">${siblings.length?`<div class="banner" style="margin:0 0 12px;background:var(--info-soft)"><p>Order <b>${esc(editing.orderNumber)}</b> has ${siblings.length} other product line${siblings.length>1?"s":""}: ${esc(siblings.map(s=>s.productName||"Untitled").join(", "))}. Order and client details you change here are copied to all lines.</p></div>`:""}
+    <div class="drawer-b">${siblings.length?`<div class="banner" style="margin:0 0 12px;background:var(--info-soft)"><p>Invoice <b>${esc(editing.orderNumber)}</b> has ${siblings.length} other product line${siblings.length>1?"s":""}: ${esc(siblings.map(s=>s.productName||"Untitled").join(", "))}. Order and client details you change here are copied to all lines.</p></div>`:""}
     <form id="of" autocomplete="off">${secs.map(sec=>`<fieldset><legend>${sec}${sec==="Order"||sec==="Client"?' <span class="note" style="font-weight:400">· same for every product in this order</span>':""}</legend><div class="fgrid">${F.filter(f=>f.s===sec).map(fieldHtml).join("")}</div>${sec==="Price"?'<div class="pnl" id="pnl"></div>':""}</fieldset>`).join("")}</form>
     <p class="note">Grey hint text shows the default that applies when a field is left blank.</p></div>
     <div class="drawer-f"><button class="btn primary" id="dr-save">${id?"Save changes":"Save"}</button><button class="btn" id="dr-add">Save & add another product</button><button class="btn" id="dr-cancel">Cancel</button><span class="spacer"></span>${id&&FULL?'<button class="btn danger" id="dr-del">Delete line</button>':""}</div>
@@ -816,8 +815,8 @@ function toISO(v){v=String(v||"").trim();if(!v)return "";if(/^\d{4}-\d{2}-\d{2}/
   const d=new Date(v);return isNaN(d)?"":d.toISOString().slice(0,10)}
 async function importCSV(file){
   const rows=parseCSV(await file.text());
-  const hi=rows.findIndex(r=>r.some(c=>["order#","po#","orderdate"].includes(norm(c))));
-  if(hi<0){toast("Couldn't find the header row (looking for “Order #” or “Order Date”).");return}
+  const hi=rows.findIndex(r=>r.some(c=>["invoice#","order#","po#","orderdate"].includes(norm(c))));
+  if(hi<0){toast("Couldn't find the header row (looking for “Invoice #” or “Order Date”).");return}
   const hdr=rows[hi].map(norm);const idx=name=>hdr.indexOf(norm(name));
   const map={};F.forEach(f=>{for(const n of [f.l,...(f.al||[])]){const i=idx(n);if(i>=0){map[f.k]=i;break}}});
   EXPORT_COLS.forEach(c=>{if(!c.calc){const i=idx(c.l);if(i>=0&&map[c.k]===undefined)map[c.k]=i}});
@@ -867,7 +866,7 @@ function renderSettings(){
     <p style="margin:0 0 6px"><b>Total price</b> = Price per unit × Number of items + Tax customer pays <span class="note">(this is Total sales on the dashboard)</span></p>
     <p style="margin:0 0 6px"><b>Gross profit</b> = Total price − Total cost <span class="note">(taxes included; rep commission and payment platform fee not included)</span></p>
     <p style="margin:0 0 6px"><b>Net profit</b> = Gross profit − Rep commission − Payment platform fee${S.deductCustomerTax?" − Tax customer paid":""}</p>
-    <p style="margin:0" class="note">Orders are counted by unique Order #. Several product lines with the same Order # are one order.</p>`;
+    <p style="margin:0" class="note">Orders are counted by unique Invoice #. Several product lines with the same Invoice # are one order.</p>`;
 }
 $("#rep-list").addEventListener("input",e=>{const i=e.target.dataset.i;if(i!==undefined)draftReps[+i].name=e.target.value});
 $("#rep-list").addEventListener("click",e=>{const i=e.target.dataset.del;if(i!==undefined){draftReps.splice(+i,1);renderSettings()}});
@@ -962,7 +961,7 @@ setTab(["dash","customers","orders","settings"].includes(ui.tab)?ui.tab:"dash");
   dbState="on";
   if(window.APP&&APP.member){FULL=APP.level("sales")==="full";MY_REP=APP.member.name||APP.member.email}
   if(!FULL){$("#tab-settings").hidden=true;$("#btn-import").hidden=true;if(ui.tab==="settings")setTab("dash");
-    $("#view-orders .note").textContent="You see the orders where you are the sales rep. Lines that share an Order # count as one order."}
+    $("#view-orders .note").textContent="You see the orders where you are the sales rep. Lines that share an Invoice # count as one order."}
   db.doc("settings/config").onSnapshot(s=>{S=Object.assign(structuredClone(DEFAULT_SETTINGS),s.exists?s.data():{});S.reps=[...(S.reps||[])];S.countStatuses=[...(S.countStatuses||[])];S.lists=Object.assign({},S.lists);S.cardPlatforms=[...(S.cardPlatforms||[])];if(ui.tab==="settings"&&!draftReps)renderSettings();renderAll()},()=>{});
   (FULL?db.collection("orders"):db.collection("orders").where("salesRep","==",MY_REP)).onSnapshot(snap=>{ORDERS=snap.docs.map(d=>({...d.data(),_id:d.id}));loaded=true;renderAll()},()=>{dbState="off";loaded=true;renderAll()});
 })();

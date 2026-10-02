@@ -22,7 +22,7 @@ APP.ready.then(()=>{
   document.getElementById("hello").textContent="Hello, "+(m.name||m.email).split(/[\s(]/)[0];
   const tiles=APP.TOOLS.filter(t=>APP.isAdmin||APP.level(t.k)!=="none").map(t=>{
     const lv=APP.level(t.k);
-    const badge=t.ready?`<span class="ap-pill ${lv}">${lv==="full"?"Full access":"Limited access"}</span>`:`<span class="ap-pill">Coming soon</span>`;
+    const badge=t.ready?`<span class="ap-pill ${lv}">${t.readOnly?"Read":lv==="full"?"Full access":"Limited access"}</span>`:`<span class="ap-pill">Coming soon</span>`;
     return t.ready?`<a class="ap-tile" href="${t.href}"><h2>${esc(t.l)}</h2><p>${esc(t.desc)}</p>${badge}</a>`
                   :`<div class="ap-tile soon"><h2>${esc(t.l)}</h2><p>${esc(t.desc)}</p>${badge}</div>`;
   });

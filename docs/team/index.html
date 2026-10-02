@@ -62,9 +62,10 @@ const TOOLS=APP.TOOLS,me=APP.member.email;
 let PEOPLE=[];
 
 function levelPill(m,k){
-  if(m.role==="admin")return '<span class="ap-pill full">Full</span>';
+  const ro=(TOOLS.find(t=>t.k===k)||{}).readOnly;
+  if(m.role==="admin")return `<span class="ap-pill full">${ro?"Read":"Full"}</span>`;
   const lv=(m.access||{})[k]||"none";
-  return lv==="none"?'<span class="ap-note">—</span>':`<span class="ap-pill ${lv}">${APP.LEVELS[lv]}</span>`;
+  return lv==="none"?'<span class="ap-note">—</span>':`<span class="ap-pill ${lv}">${ro?"Read":APP.LEVELS[lv]}</span>`;
 }
 function render(){
   const rows=[...PEOPLE].sort((a,b)=>(b.email===APP.OWNER)-(a.email===APP.OWNER)||(b.active===true)-(a.active===true)||String(a.name).localeCompare(String(b.name)));
@@ -98,7 +99,7 @@ function openForm(p){
       </fieldset>
       <fieldset id="acc-set"><legend>Tool access</legend>
         <div class="acc">${TOOLS.map(t=>`<label for="a-${t.k}">${esc(t.l)}${t.ready?"":' <span class="soon">· coming soon</span>'}</label>
-          <select class="ap-sel" id="a-${t.k}">${Object.entries(APP.LEVELS).map(([v,l])=>`<option value="${v}"${((m.access||{})[t.k]||"none")===v?" selected":""}>${l}</option>`).join("")}</select>`).join("")}</div>
+          <select class="ap-sel" id="a-${t.k}">${(t.readOnly?[["none","No access"],["full","Can read"]]:Object.entries(APP.LEVELS)).map(([v,l])=>`<option value="${v}"${((m.access||{})[t.k]||"none")===v?" selected":""}>${l}</option>`).join("")}</select>`).join("")}</div>
         <p class="hint" style="margin:0"><b>Limited</b>: their own records only, add and edit, no delete. <b>Full</b>: everything in that tool, including delete and settings (a team lead).</p>
       </fieldset>
       <label class="radio"><input type="checkbox" id="f-active" ${m.active===true?"checked":""} ${owner||self?"disabled":""}><span><b>Can sign in</b><br><span class="hint">Untick to turn off their access without losing their records.</span></span></label>

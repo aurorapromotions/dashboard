@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Handbook · Aurora Promotions Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/core.css">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script>window.PAGE={tool:"handbook",base:"../"}</script>
+<script src="../assets/core.js"></script>
+<style>
+/* Layout: contents list on the left (top on phones), long-form reading column on the right. */
+.hb{display:grid;grid-template-columns:230px minmax(0,1fr);gap:32px;align-items:start}
+@media (max-width:860px){.hb{grid-template-columns:1fr;gap:16px}}
+.toc{position:sticky;top:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:13px}
+@media (max-width:860px){.toc{position:static}}
+.toc b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0}
+.toc a:hover{color:var(--accent)}
+.doc{max-width:780px;font-size:15px;line-height:1.6}
+.doc h2{font-family:var(--f-display);font-size:22px;margin:40px 0 8px;padding-top:8px;border-top:1px solid var(--line);scroll-margin-top:12px}
+.doc h2:first-of-type{margin-top:8px;border-top:0}
+.doc h3{font-size:16px;margin:22px 0 6px}
+.doc p,.doc li{color:var(--ink-2)}
+.doc b,.doc strong{color:var(--ink)}
+.doc ol,.doc ul{padding-left:22px}
+.doc li{margin:4px 0}
+.doc code{background:var(--surface-2);border-radius:4px;padding:1px 5px;font-size:13px;color:var(--ink);overflow-wrap:anywhere}
+.doc pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-size:13px;line-height:1.5;color:var(--ink)}
+.doc table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}
+.doc th,.doc td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+.doc th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.tw{overflow-x:auto}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0}
+.box.tip{border-left:4px solid var(--accent)}
+.box.warn{border-left:4px solid var(--warn)}
+.arch{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}
+.arch div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink-2)}
+.arch div b{display:block;font-size:14px;margin-bottom:2px}
+.arch .soon{border-style:dashed;opacity:.8}
+</style>
+</head><body>
+<main class="ap-wrap" id="page" hidden>
+<h1 class="ap-h1">Handbook</h1>
+<p class="ap-muted" style="margin:0 0 20px">How the Aurora Promotions Dashboard works, how to change it, how to move it to your own website, and how to rebuild it from scratch.</p>
+<div class="hb">
+<nav class="toc" aria-label="Contents"><b>Contents</b>
+  <a href="#overview">1. What the dashboard is</a>
+  <a href="#parts">2. How it's built</a>
+  <a href="#access">3. Sign-in and access</a>
+  <a href="#people">4. Managing people</a>
+  <a href="#sales">5. Sales Navigator logic</a>
+  <a href="#changes">6. Making changes</a>
+  <a href="#domain">7. Moving to aurorapromotions.ca</a>
+  <a href="#rebuild">8. Rebuilding from scratch</a>
+  <a href="#backup">9. Backups and copies</a>
+  <a href="#costs">10. Costs and limits</a>
+  <a href="#trouble">11. Troubleshooting</a>
+  <a href="#history">12. History</a>
+</nav>
+<article class="doc">
+
+<h2 id="overview">1. What the dashboard is</h2>
+<p>The Aurora Promotions Dashboard is the company's internal web app. It replaced a manual Google Sheet and is growing into a small ERP, with one sign-in and several tools:</p>
+<table><thead><tr><th>Tool</th><th>What it does</th><th>Status</th></tr></thead><tbody>
+<tr><td><b>Sales Navigator</b></td><td>Order log and sales dashboard: sales, gross and net profit by year, month, sales rep and customer.</td><td>Live</td></tr>
+<tr><td><b>Team &amp; Access</b></td><td>Admins add people, choose how they sign in and which tools they can use.</td><td>Live</td></tr>
+<tr><td><b>Handbook</b></td><td>This page.</td><td>Live</td></tr>
+<tr><td><b>Projects</b></td><td>Projects and tasks assigned to team members, with progress tracking.</td><td>Planned</td></tr>
+<tr><td><b>Leads</b></td><td>Leads from GoHighLevel (Facebook, Google), emails and texts reviewed by a rep before sending, follow-up reminders every 2 days.</td><td>Planned</td></tr>
+<tr><td><b>Order Acceptance</b></td><td>Client gets a link with the order summary, Terms and Conditions and a Stripe/Square invoice, and accepts online.</td><td>Planned</td></tr>
+</tbody></table>
+<p>Live address: <b>https://aurorapromotions.github.io/dashboard/</b></p>
+
+<h2 id="parts">2. How it's built</h2>
+<p>The dashboard is deliberately simple: plain web pages (HTML, CSS and JavaScript) with no build step, plus Google Firebase for logins and data.</p>
+<div class="arch">
+  <div><b>Website files</b>Hosted free on GitHub Pages, from the <code>docs/</code> folder of the GitHub repository <code>aurorapromotions/dashboard</code>.</div>
+  <div><b>Sign-in</b>Firebase Authentication: Google accounts, or email and password.</div>
+  <div><b>Database</b>Firebase Firestore (project <code>sales-navigator-1b716</code>, stored in Canada, <code>northamerica-northeast2</code>).</div>
+  <div><b>Security rules</b>Firestore rules decide who can read or change each record. They are the real lock; the pages only hide what the rules already forbid.</div>
+  <div class="soon"><b>Connector (planned)</b>A small free Cloudflare Worker to receive GoHighLevel leads, send approved emails and texts, and talk to Stripe/Square. Secret keys live there, never in the website.</div>
+</div>
+<h3>Where things are</h3>
+<div class="tw"><table><thead><tr><th>File or folder</th><th>What it is</th></tr></thead><tbody>
+<tr><td><code>docs/index.html</code></td><td>Home page with a tile for each tool the person can use.</td></tr>
+<tr><td><code>docs/assets/core.js</code></td><td>Shared by every page: sign-in screen, looking up the person's access, the top bar, and the list of tools (<code>TOOLS</code>).</td></tr>
+<tr><td><code>docs/assets/core.css</code></td><td>Shared colours (light and dark), top bar, buttons.</td></tr>
+<tr><td><code>docs/firebase-config.js</code></td><td>Which Firebase project to use. Not secret; every Firebase website includes it.</td></tr>
+<tr><td><code>docs/sales/index.html</code></td><td>Sales Navigator (everything in one file).</td></tr>
+<tr><td><code>docs/team/index.html</code></td><td>Team &amp; Access.</td></tr>
+<tr><td><code>docs/handbook/index.html</code></td><td>This Handbook.</td></tr>
+<tr><td><code>firestore.rules</code></td><td>Copy of the security rules published in Firebase.</td></tr>
+<tr><td><code>CLAUDE.md</code></td><td>Technical notes for Claude (the AI assistant used to build and change the app).</td></tr>
+<tr><td><code>tools/serve.ps1</code></td><td>Small test server to try the app on this computer.</td></tr>
+<tr><td><code>archive/</code></td><td>The first version (made in a Claude chat), kept for reference.</td></tr>
+</tbody></table></div>
+
+<h2 id="access">3. Sign-in and access</h2>
+<p>Everyone signs in on the same screen, either with <b>Google</b> (for @aurorapromotions.ca or any Google/Gmail account) or with <b>email and password</b> (for any other email). Only people added on the Team &amp; Access page get in.</p>
+<table><thead><tr><th>Role</th><th>What they can do</th></tr></thead><tbody>
+<tr><td><b>Main admin</b></td><td>ihsan@aurorapromotions.ca. Always an admin; can't be removed or demoted.</td></tr>
+<tr><td><b>Admin</b></td><td>Every tool with full access, plus Team &amp; Access. Can add other admins.</td></tr>
+<tr><td><b>Team lead</b></td><td>A member with <b>Full</b> access to one or more tools, for example a sales lead who sees, edits and deletes all orders and changes Sales settings.</td></tr>
+<tr><td><b>Member / rep</b></td><td><b>Limited</b> access: only their own records (in Sales Navigator, orders where they are the sales rep). Can add and edit, cannot delete, cannot change settings.</td></tr>
+</tbody></table>
+<p>Each person is stored in the database as <code>members/&lt;their email&gt;</code> with their name, role, whether they're active, how they sign in, and an access level per tool. The security rules read this record on every request.</p>
+<div class="box tip"><b>A person's name is also their sales rep name.</b> A rep with Limited access sees the orders whose <i>Sales Rep</i> exactly matches their name. Renaming someone on the Team page renames their orders too.</div>
+<p>Password logins: when an admin adds someone with email and password, the app creates their login and Firebase emails them a link to set their own password. The admin never sees or types the password. The rules only accept that exact login (its hidden ID is saved on the person's record), so nobody can create a look-alike account.</p>
+
+<h2 id="people">4. Managing people</h2>
+<ol>
+  <li><b>Add someone:</b> Team &amp; Access → <b>+ Add person</b> → name, email, how they sign in, role, and access for each tool → <b>Add person</b>.</li>
+  <li><b>Change access:</b> click <b>Edit</b> on their row, change the tool levels, save. It takes effect immediately.</li>
+  <li><b>Remove someone:</b> Edit → untick <b>Can sign in</b>. They're blocked right away; their records stay.</li>
+  <li><b>Password problems:</b> Edit → <b>Send password email</b>, or they can click "Forgot your password" on the sign-in screen.</li>
+</ol>
+
+<h2 id="sales">5. Sales Navigator logic</h2>
+<h3>Orders and invoice numbers</h3>
+<ul>
+  <li>Each row is one <b>product line</b>. Lines that share the same <b>Invoice #</b> are one order. (Invoice #, PO # and order number are the same thing at Aurora, so only Invoice # is used.)</li>
+  <li>Order and client details (invoice #, status, rep, dates, client, payment platform, address) are the same for every line of an invoice; saving one line copies them to the others.</li>
+  <li>If you leave Invoice # blank, the app gives the next number automatically (<code>INV-1035</code>, <code>INV-1036</code> …) from one shared counter, so two reps can never get the same number.</li>
+</ul>
+<h3>Money formulas</h3>
+<pre>Base cost        = (Item cost + Running charge) × Items + Setup + Shipping + Other costs
+Tax to supplier  = Base cost × Supplier tax %          (a real cost; never claimed back)
+Total price      = Price per unit × Items + Customer tax  ("Total sales" includes customer tax)
+Refund           = counted only when the status is Cancelled
+Total cost       = Base cost + Tax to supplier + Refund
+Gross profit     = Total price − Total cost             (before commission and platform fee)
+Platform fee     = $ amount, or % of Total price        (default % only on card platforms)
+Net profit       = Gross profit − Rep commission ($) − Platform fee − Customer tax</pre>
+<p>The customer tax is subtracted from net profit because it is paid over to the government (Settings → "Customer tax is paid over to the government").</p>
+<h3>What gets counted</h3>
+<ul>
+  <li>Dashboard totals include every status except <b>Quote</b> and <b>Cancelled</b> (changeable in Settings → Counted in sales).</li>
+  <li><b>Days to deliver</b> is counted once per order: from the order date to the delivery date of its <i>last</i> product, only when every product has a delivery date.</li>
+  <li><b>In-hands on time</b>: an order is on time when every line was delivered on or before the in-hands date (or marked Yes/No by hand).</li>
+  <li><b>Customers</b>: a client company is matched on its name (ignoring capitals and extra spaces); a contact person on their email, otherwise on name + company. A customer is "new" in the month or year of their first counted order, "repeat" after that.</li>
+</ul>
+<h3>Dropdown lists</h3>
+<p>Settings → Dropdown lists controls the choices for priority, status, acquisition channel, product category, decoration method, payment platform (and which ones charge the card fee) and shipping company. Renaming a choice updates the orders that use it. The <b>Quote</b> and <b>Cancelled</b> statuses can be renamed but not removed, because totals and refunds depend on them.</p>
+<h3>Import and export</h3>
+<p>Orders → Import CSV accepts a CSV saved from Google Sheets. Columns are matched by header name (old names like "Order #" or "PO #" are understood as Invoice #). Export CSV downloads every column, including the calculated ones.</p>
+
+<h2 id="changes">6. Making changes</h2>
+<h3>The easy way: ask Claude</h3>
+<ol>
+  <li>Open the Claude desktop app → <b>Code</b> → start a session in the folder <code>Desktop\Sales Navigator</code>.</li>
+  <li>Describe the change in plain words, e.g. "add a column for decoration colour" or "show profit by product category".</li>
+  <li>Claude reads <code>CLAUDE.md</code>, makes the change, tests it, and uploads it. The website updates about a minute later. Your data isn't touched.</li>
+</ol>
+<h3>By hand (for a developer)</h3>
+<ol>
+  <li>Edit the files in <code>docs/</code>. There is no build step: what's in <code>docs/</code> is exactly what the website serves.</li>
+  <li>Test on this computer: run <code>powershell -ExecutionPolicy Bypass -File tools\serve.ps1 -Port 8091</code>, then open <code>http://localhost:8091/docs/?demo=admin</code> (or <code>demo=lead</code>, <code>demo=rep</code>). Demo mode uses fake people and browser storage, never the real database. Add <code>?seed=1</code> on the Sales page for example orders.</li>
+  <li>If the change affects who may read or write data, edit <code>firestore.rules</code> and publish it in Firebase (Firestore → Rules → paste → Publish) <b>before</b> uploading the pages.</li>
+  <li>Upload: commit and push to the <code>main</code> branch of <code>aurorapromotions/dashboard</code> (or drag the files into the repository on github.com). GitHub Pages republishes in about a minute.</li>
+  <li>Update this Handbook if the logic changed.</li>
+</ol>
+<h3>Adding a new tool</h3>
+<ol>
+  <li>Create <code>docs/&lt;tool&gt;/index.html</code> (copy the top of an existing page, set <code>window.PAGE={tool:"&lt;key&gt;",base:"../"}</code>).</li>
+  <li>Add it to <code>TOOLS</code> in <code>docs/assets/core.js</code> with <code>ready:true</code>. It then appears on the home page and Team page.</li>
+  <li>Add a block for its data in <code>firestore.rules</code> using <code>full('&lt;key&gt;')</code> and <code>limited('&lt;key&gt;')</code>, and publish it.</li>
+</ol>
+
+<h2 id="domain">7. Moving to aurorapromotions.ca</h2>
+<p>The data stays in Firebase whichever option you choose; only the address of the pages changes.</p>
+<h3>Option A (recommended): your own address, still hosted by GitHub</h3>
+<ol>
+  <li>Where the DNS for aurorapromotions.ca is managed (often your hosting control panel → Zone Editor / DNS), add a record: type <b>CNAME</b>, name <b>dashboard</b>, value <b>aurorapromotions.github.io</b>.</li>
+  <li>On github.com → repository <code>aurorapromotions/dashboard</code> → Settings → Pages → <b>Custom domain</b>: <code>dashboard.aurorapromotions.ca</code> → Save. When the check passes, tick <b>Enforce HTTPS</b>.</li>
+  <li>Firebase console → Authentication → Settings → <b>Authorized domains</b> → Add domain → <code>dashboard.aurorapromotions.ca</code>. (Without this, sign-in fails on the new address.)</li>
+  <li>Open https://dashboard.aurorapromotions.ca and sign in. The old github.io address redirects there.</li>
+</ol>
+<h3>Option B: host the files on your own server</h3>
+<ol>
+  <li>In your hosting control panel, create the subdomain <code>dashboard.aurorapromotions.ca</code> (or use a folder such as <code>aurorapromotions.ca/dashboard</code>).</li>
+  <li>Upload <b>the contents of the <code>docs/</code> folder</b> (index.html, firebase-config.js, .nojekyll, and the folders assets, sales, team, handbook) into that subdomain's folder, keeping the folder structure. All links are relative, so a subfolder works too.</li>
+  <li>Make sure the address has HTTPS (AutoSSL / Let's Encrypt in most control panels). Google sign-in requires it.</li>
+  <li>Add the domain to Firebase → Authentication → Settings → Authorized domains.</li>
+  <li>Optional: turn off GitHub Pages (repository → Settings → Pages → Source: None). Keep the GitHub repository as the master copy, and re-upload changed files to your server after each change.</li>
+</ol>
+
+<h2 id="rebuild">8. Rebuilding from scratch</h2>
+<p>Use this if the project ever needs to be set up again under new accounts. You need a Google account (for Firebase) and a GitHub account (or your own hosting).</p>
+<ol>
+  <li><b>Get the code:</b> the GitHub repository <code>aurorapromotions/dashboard</code>, or the local copy on drive D: or the Desktop.</li>
+  <li><b>Create a Firebase project</b> at console.firebase.google.com (Google Analytics off).</li>
+  <li><b>Database:</b> Build → Firestore Database → Create database → production mode → a location near you.</li>
+  <li><b>Sign-in:</b> Build → Authentication → Get started → enable <b>Google</b> (set the public-facing name and support email) and <b>Email/Password</b>. Under Settings → Authorized domains, add the address where the site will live.</li>
+  <li><b>Connect the site:</b> Project settings → Your apps → Web (<code>&lt;/&gt;</code>) → register → copy the <code>firebaseConfig</code> values into <code>docs/firebase-config.js</code>.</li>
+  <li><b>Security rules:</b> Firestore → Rules → paste the contents of <code>firestore.rules</code> → Publish. If the main admin is someone else, replace <code>ihsan@aurorapromotions.ca</code> in the rules and in <code>OWNER</code> at the top of <code>docs/assets/core.js</code>.</li>
+  <li><b>Host the site:</b> new GitHub repository → upload everything → Settings → Pages → Branch <code>main</code>, folder <code>/docs</code>. Or follow Option B above.</li>
+  <li><b>First sign-in:</b> the main admin signs in with Google; their admin record is created automatically. Then add the team on Team &amp; Access.</li>
+  <li><b>Bring data across:</b> in the old dashboard, Sales Navigator → Orders → <b>Export CSV</b>; in the new one, <b>Import CSV</b>. Re-enter Settings (tax and fee defaults, dropdown lists) and people by hand.</li>
+</ol>
+
+<h2 id="backup">9. Backups and copies</h2>
+<ul>
+  <li><b>Code:</b> online in GitHub (<code>aurorapromotions/dashboard</code>, with every past version), the working copy in <code>Desktop\Sales Navigator</code>, and a backup copy on drive D: (<code>D:\Aurora Promotions Dashboard</code>). To refresh the D: copy, double-click <code>Update this copy from GitHub.bat</code> in that folder.</li>
+  <li><b>Data:</b> lives in Firebase. Download a copy regularly with Sales Navigator → Orders → <b>Export CSV</b> and keep it with your files (for example in a <code>Backups</code> folder on D:). Firebase's own automatic exports need the paid Blaze plan.</li>
+</ul>
+
+<h2 id="costs">10. Costs and limits</h2>
+<ul>
+  <li><b>GitHub Pages:</b> free. The repository is public, so the <i>code</i> can be seen by anyone; your <i>data</i> is not in it.</li>
+  <li><b>Firebase (Spark, free plan):</b> about 1 GB of data, 50,000 reads and 20,000 writes per day, unlimited Google/email logins. Far more than a small team uses. If you ever outgrow it, the Blaze plan charges only for use above these amounts.</li>
+  <li><b>Planned extras:</b> GoHighLevel email/SMS charges (your GHL plan), Stripe or Square card fees when clients pay invoices, Claude-written drafts (pay per use, a few cents each).</li>
+</ul>
+<div class="box warn"><b>Never put secret keys in <code>docs/</code>.</b> Stripe, Square, GoHighLevel or Anthropic keys must go only into the connector service (planned), never into the website files, because those are public.</div>
+
+<h2 id="trouble">11. Troubleshooting</h2>
+<table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody>
+<tr><td>"… doesn't have access to the dashboard"</td><td>Add them on Team &amp; Access, or tick <b>Can sign in</b>.</td></tr>
+<tr><td>"This email/password login isn't linked"</td><td>The login wasn't created from the Team page. Ask an admin to check the person's record; adding them with Google sign-in also works if it's a Google address.</td></tr>
+<tr><td>A rep sees no orders</td><td>Their name on the Team page must exactly match the Sales Rep on their orders.</td></tr>
+<tr><td>Google sign-in window doesn't open</td><td>Allow pop-ups for the site in the browser.</td></tr>
+<tr><td>Sign-in fails on a new address</td><td>Add the address to Firebase → Authentication → Settings → Authorized domains.</td></tr>
+<tr><td>"You don't have permission to do that"</td><td>Their access level doesn't allow it (e.g. Limited can't delete). Change it on Team &amp; Access.</td></tr>
+<tr><td>Changes don't show on the website</td><td>Wait a minute after uploading, then reload with Ctrl+F5.</td></tr>
+</tbody></table>
+
+<h2 id="history">12. History</h2>
+<ul>
+  <li><b>29 Sep 2026:</b> first Sales Navigator, built in a Claude chat (claude.ai), replacing the manual Google Sheet. Moved to Claude Code, GitHub Pages and Firebase the same day. Profit rules agreed: supplier tax is a cost, platform fee and commission only lower net profit, refunds only on cancelled orders, total sales includes customer tax.</li>
+  <li><b>2 Oct 2026:</b> became the Aurora Promotions Dashboard: shared sign-in (Google or email/password), Team &amp; Access with Admin / Team lead / Member levels, security rules. Sales Navigator gained the Customers report, editable dropdown lists, and per-order delivery days.</li>
+  <li><b>2 Oct 2026:</b> Invoice # replaces Order # and PO #. Handbook added. Local backup copy on drive D:.</li>
+</ul>
+</article>
+</div>
+</main>
+<script>APP.ready.then(()=>{document.getElementById("page").hidden=false})</script>
+</body></html>

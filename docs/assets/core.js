@@ -11,6 +11,7 @@ const TOOLS=[
   {k:"leads",l:"Leads",href:"leads/",desc:"Leads from GoHighLevel, reviewed emails and texts, follow-up reminders.",ready:false},
   {k:"acceptance",l:"Order Acceptance",href:"acceptance/",desc:"Order summary, Terms and Conditions, client acceptance and invoices.",ready:false},
   {k:"projects",l:"Projects",href:"projects/",desc:"Projects and tasks, assignments and progress.",ready:false},
+  {k:"handbook",l:"Handbook",href:"handbook/",desc:"How the dashboard works, how to change it, move it to your own website, or rebuild it.",ready:true,readOnly:true},
 ];
 const LEVELS={none:"No access",limited:"Limited",full:"Full"};
 const LEVEL_HELP={limited:"Own records only · can add and edit, not delete",full:"Everything in this tool, including delete and settings"};
