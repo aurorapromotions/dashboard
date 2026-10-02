@@ -181,18 +181,29 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li>Emails fill in <code>{first_name}</code>, <code>{name}</code>, <code>{company}</code>, <code>{season}</code>, <code>{catalog_link}</code>, <code>{products}</code>, <code>{rep_name}</code>.</li>
 </ul>
 <h3>Reaching out and following up</h3>
+<div class="box warn"><b>Approval rule: no email reaches a client without the approval of that client's own sales rep.</b>
+<ul style="margin:6px 0 0">
+  <li>Only the rep who owns the client sees the send buttons. Admins and sales leads can only <b>prepare a draft</b> for the rep.</li>
+  <li><b>Approve &amp; send</b> needs two clicks; the second shows the exact recipient.</li>
+  <li>The email goes from the rep's <b>own</b> Google Workspace mailbox, using their own Google permission. Nobody else can send from it.</li>
+  <li>Nothing sends automatically. Follow-ups are prepared and shown as "due"; each one needs the rep's approval again.</li>
+</ul></div>
 <ol>
-  <li><b>Reach out</b> lists the rep's clients for the selected season. <b>Write email</b> shows the filled-in email, which the rep can edit.</li>
-  <li><b>Open in Gmail / Outlook</b> opens it as a new message in the rep's own company mailbox (each person picks Gmail, Outlook or their email app once). The rep sends it there.</li>
-  <li>Back in the dashboard the rep clicks <b>I sent it</b>. A reminder is set for <b>4 days</b> later (changeable in Settings).</li>
-  <li>If there's no reply by then, the client shows <b>Follow-up due</b> with a ready follow-up email. After the maximum number of follow-ups (default 2) the client is closed as <b>No reply</b> for that season.</li>
+  <li><b>Reach out</b> lists the rep's clients for the selected season. <b>Write email</b> shows the filled-in email (or the draft an admin prepared), which the rep can edit.</li>
+  <li><b>Approve &amp; send</b> sends it from the rep's company Gmail. It appears in their Sent folder in Gmail and in Outlook. The first time, Google asks the rep to allow the dashboard to send email and see replies.
+    <br><span class="hint">Without the Gmail connection (or for a non-company address), <b>Open in Gmail / Outlook</b> opens a ready message instead; the rep sends it there and clicks <b>I sent it</b>.</span></li>
+  <li>A reminder is set for <b>4 days</b> later (changeable in Settings).</li>
+  <li><b>Replies are detected automatically</b> when the rep opens Reach out (or clicks <b>Check Gmail for replies</b>): if anyone else wrote in that email conversation, the client is marked <b>Replied</b>. The dashboard only checks <i>whether</i> a reply arrived; it never reads email content.</li>
+  <li>If there's no reply by then, the client shows <b>Follow-up due</b> with a ready follow-up, sent in the same email conversation. After the maximum number of follow-ups (default 2) the client is closed as <b>No reply</b> for that season.</li>
   <li>Any time, the rep can mark <b>Replied</b>, <b>Quote requested</b>, <b>Ordered</b>, <b>Not interested</b>, <b>Follow-ups off</b> or <b>Skipped</b>, which stops the reminders. Everything is kept in the client's history.</li>
 </ol>
 <table><thead><tr><th>Access</th><th>In Clients &amp; Seasons they can…</th></tr></thead><tbody>
-<tr><td><b>Full</b> (admins, sales leads)</td><td>See all clients and outreach, create and edit seasons, change owners, edit Settings, delete.</td></tr>
-<tr><td><b>Limited</b> (reps)</td><td>See and work their own clients and outreach, add clients (owned by them), edit their clients' details. No deleting, no seasons or settings.</td></tr>
+<tr><td><b>Full</b> (admins, sales leads)</td><td>See all clients and outreach, create and edit seasons, change owners, prepare drafts for reps, edit Settings, delete. They send only to clients they own themselves.</td></tr>
+<tr><td><b>Limited</b> (reps)</td><td>See and work their own clients and outreach, approve and send to their own clients, add clients (owned by them), edit their clients' details. No deleting, no seasons or settings.</td></tr>
 </tbody></table>
-<div class="box tip"><b>Coming later:</b> connecting the company Gmail/Outlook accounts directly, so emails send from the dashboard, replies are detected automatically, and reps get a daily email of follow-ups due. That needs the small "connector" service (see Costs).</div>
+<h3>How the Gmail connection works</h3>
+<p>There is no server and no stored password. When a rep clicks Approve &amp; send, their browser asks Google (with Google's own window) for permission to <i>send email</i> and <i>see email headers</i> for their own @aurorapromotions.ca account, then sends through Gmail directly. Set-up (done once, in Google Cloud for the project <code>sales-navigator-1b716</code>): Gmail API enabled, OAuth consent screen set to <b>Internal</b> (only aurorapromotions.ca accounts), and a Web OAuth client whose ID is in <code>docs/firebase-config.js</code> as <code>GOOGLE_OAUTH_CLIENT_ID</code>, with the dashboard's address as an authorized JavaScript origin. If you move the dashboard to a new address, add that address to the OAuth client's origins too.</p>
+<div class="box tip"><b>Still to come:</b> a daily email to each rep listing follow-ups due. That needs a small scheduled "connector" service (see Costs).</div>
 
 <h2 id="changes">8. Making changes</h2>
 <h3>The easy way: ask Claude</h3>
@@ -223,6 +234,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li>Where the DNS for aurorapromotions.ca is managed (often your hosting control panel → Zone Editor / DNS), add a record: type <b>CNAME</b>, name <b>dashboard</b>, value <b>aurorapromotions.github.io</b>.</li>
   <li>On github.com → repository <code>aurorapromotions/dashboard</code> → Settings → Pages → <b>Custom domain</b>: <code>dashboard.aurorapromotions.ca</code> → Save. When the check passes, tick <b>Enforce HTTPS</b>.</li>
   <li>Firebase console → Authentication → Settings → <b>Authorized domains</b> → Add domain → <code>dashboard.aurorapromotions.ca</code>. (Without this, sign-in fails on the new address.)</li>
+  <li>Google Cloud → Google Auth Platform → Clients → the dashboard web client → add <code>https://dashboard.aurorapromotions.ca</code> under Authorized JavaScript origins (for Approve &amp; send).</li>
   <li>Open https://dashboard.aurorapromotions.ca and sign in. The old github.io address redirects there.</li>
 </ol>
 <h3>Option B: host the files on your own server</h3>
@@ -244,6 +256,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li><b>Connect the site:</b> Project settings → Your apps → Web (<code>&lt;/&gt;</code>) → register → copy the <code>firebaseConfig</code> values into <code>docs/firebase-config.js</code>.</li>
   <li><b>Security rules:</b> Firestore → Rules → paste the contents of <code>firestore.rules</code> → Publish. If the main admin is someone else, replace <code>ihsan@aurorapromotions.ca</code> in the rules and in <code>OWNER</code> at the top of <code>docs/assets/core.js</code>.</li>
   <li><b>Host the site:</b> new GitHub repository → upload everything → Settings → Pages → Branch <code>main</code>, folder <code>/docs</code>. Or follow Option B above.</li>
+  <li><b>Gmail sending (optional):</b> in Google Cloud for the same project, enable the Gmail API, set the OAuth consent screen to Internal, create a Web OAuth client with the site address as an authorized JavaScript origin, and put its client ID in <code>GOOGLE_OAUTH_CLIENT_ID</code> in <code>docs/firebase-config.js</code>.</li>
   <li><b>First sign-in:</b> the main admin signs in with Google; their admin record is created automatically. Then add the team on Team &amp; Access.</li>
   <li><b>Bring data across:</b> in the old dashboard, Sales Navigator → Orders → <b>Export CSV</b>; in the new one, <b>Import CSV</b>. Re-enter Settings (tax and fee defaults, dropdown lists) and people by hand.</li>
 </ol>
@@ -280,6 +293,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li><b>2 Oct 2026:</b> Invoice # replaces Order # and PO #. Handbook added. Local backup copy on drive D:.</li>
   <li><b>2 Oct 2026:</b> Projects tool: one project per client order, standard steps, tasks with progress and comments, My tasks / Board / Projects views. Team members can now see each other's names (needed to assign tasks).</li>
   <li><b>2 Oct 2026:</b> Plan changed from "Leads" to <b>Clients &amp; Seasons</b>: clients built from orders (owner = first rep), seasons added by hand every 1.5–2 months with website catalog links, emails opened in company Gmail/Outlook, follow-up after 4 days.</li>
+  <li><b>2 Oct 2026:</b> Approve &amp; send from the rep's own company Gmail, with automatic reply detection. Rule: no email reaches a client without the approval of that client's own sales rep; admins and leads can only prepare drafts.</li>
 </ul>
 </article>
 </div>

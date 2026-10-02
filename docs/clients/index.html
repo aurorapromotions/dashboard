@@ -10,6 +10,7 @@
 <script src="../firebase-config.js"></script>
 <script>window.PAGE={tool:"clients",base:"../"}</script>
 <script src="../assets/core.js"></script>
+<script src="../assets/gmail.js"></script>
 <style>
 /* Layout: title row; tabs (Reach out / Clients / Seasons / Settings) + filters; content card; details open in a slide-over. */
 .head{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
@@ -270,11 +271,14 @@ function renderReach(){
       ${FULL?`<td>${esc(c.owner||"—")}</td>`:""}<td class="nowrap">${c.stats&&c.stats.lastOrder?fmtD(c.stats.lastOrder):"—"}</td>
       <td><span class="pill ${st}">${st==="due"?`Follow-up ${((o.followups||0)+1)} due`:ST[st]}</span></td>
       <td class="nowrap">${o&&o.status==="sent"?`<span class="${st==="due"?"late":""}">${fmtD(o.nextFollowUp)}</span>`:"—"}</td>
-      <td class="nowrap"><button class="ap-btn ap-small" data-write="${esc(c._id)}">${st==="due"?"Write follow-up":st==="todo"?"Write email":"Open"}</button></td></tr>`).join("")
+      <td class="nowrap"><button class="ap-btn ap-small" data-write="${esc(c._id)}">${c.owner!==MYNAME&&["todo","due"].includes(st)?"Prepare draft":st==="due"?"Write follow-up":st==="todo"?"Write email":"Open"}</button>${o&&o.draft?'<br><span class="tag hot">Draft ready</span>':""}</td></tr>`).join("")
       ||`<tr><td colspan="7" class="empty">No clients for this season${ui.owner!=="all"?" and rep":""}. ${FULL?"Change the season's target, or open a client and add them.":""}</td></tr>`}
     </tbody></table></div></div>
-    <p class="hint">Emails open in ${sendWith==="outlook"?"Outlook":sendWith==="app"?"your email app":"Gmail"} from your own company address. <a href="#" id="chg-send">Change</a></p>`;
-  $("#chg-send").onclick=e=>{e.preventDefault();pickSender()};
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
+      ${GMAIL.available()?`<button class="ap-btn ap-small" id="chk-replies">Check Gmail for replies</button><span class="hint">You approve and send each email from <b>${esc(GMAIL.address())}</b>. Only a client's own rep can send to them.</span>`
+        :`<span class="hint">Emails open in ${sendWith==="outlook"?"Outlook":sendWith==="app"?"your email app":"Gmail"} from your own company address. <a href="#" id="chg-send">Change</a></span>`}</div>`;
+  if($("#chg-send"))$("#chg-send").onclick=e=>{e.preventDefault();pickSender()};
+  if($("#chk-replies"))$("#chk-replies").onclick=()=>checkReplies(true);
 }
 function renderClients(){
   const el=$("#v-clients");
@@ -348,49 +352,101 @@ function pickSender(){
   $("#sw-ok").onclick=()=>{sendWith=document.querySelector("input[name=sw]:checked").value;try{localStorage.setItem("cs-send",sendWith)}catch(e){}close();render()};
 }
 
+// Only the client's own rep can send (or mark as sent): emails go from their own mailbox after their two-click approval.
+// Admins and sales leads can prepare a draft for the rep; nothing is ever sent automatically.
 function openCompose(cid){
   const s=seasonOf(ui.season),c=clientList().find(x=>x._id===cid);if(!s||!c)return;
-  const o=OUT[outId(s._id,cid)],st=outStatus(o),isFU=o&&o.status==="sent";
-  const subject=isFU?`Re: ${fill(s.subject||"{season} ideas for {company}",c,s)}`:fill(s.subject||"{season} ideas for {company}",c,s);
-  const body=fill(isFU?SET.followup:(s.body||DEF_BODY),c,s);
-  const canEdit=FULL||c.owner===MYNAME;
+  const o=OUT[outId(s._id,cid)],st=outStatus(o),isFU=!!(o&&o.status==="sent");
+  const isOwner=c.owner===MYNAME,canEdit=FULL||isOwner;
+  const baseSubject=fill(s.subject||"{season} ideas for {company}",c,s);
+  const dr=o&&o.draft&&!!o.draft.isFU===isFU?o.draft:null;
+  const subject=dr?dr.subject:isFU?`Re: ${baseSubject}`:baseSubject;
+  const body=dr?dr.body:fill(isFU?SET.followup:(s.body||DEF_BODY),c,s);
+  const viaGmail=isOwner&&GMAIL.available();
   const hist=(o&&o.history||[]).slice().reverse();
   const close=drawer(`${isFU?"Follow-up":"Email"} · ${esc(c.name||c.email)}`,`
-    <p class="ap-muted" style="margin:0">${esc(c.company||"")} · ${esc(s.name)} ${c.email?"":'· <span class="late">No email address. Add one on the client first.</span>'}</p>
+    <p class="ap-muted" style="margin:0">${esc(c.company||"")} · ${esc(s.name)} · rep: ${esc(c.owner||"—")} ${c.email?"":'· <span class="late">No email address. Add one on the client first.</span>'}</p>
     ${st!=="todo"?`<p style="margin:0">Status: <span class="pill ${st}">${st==="due"?"Follow-up due":ST[st]}</span>${o&&o.sentAt?` · first email ${fmtD(o.sentAt.slice(0,10))}`:""}${o&&o.followups?` · ${o.followups} follow-up${o.followups>1?"s":""} sent`:""}</p>`:""}
-    <div class="fg">${fld("To",inp("m-to",c.email,"email"),"wide")}${fld("Subject",inp("m-sub",subject),"wide")}${fld("Message",`<textarea id="m-body" style="min-height:260px">${esc(body)}</textarea>`,"wide")}</div>
-    <div class="sendrow"><button class="ap-btn ap-primary" id="m-open">Open in ${sendWith==="outlook"?"Outlook":sendWith==="app"?"email app":"Gmail"}</button><button class="ap-btn" id="m-copy">Copy message</button><button class="ap-btn ap-small" id="m-sw" style="align-self:center">Change mailbox</button></div>
-    <fieldset><legend>After sending</legend><div class="sendrow">
-      <button class="ap-btn ap-primary" id="m-sent">${isFU?"I sent the follow-up":"I sent it"}</button>
-      ${OUTCOMES.map(k=>`<button class="ap-btn ap-small" data-outcome="${k}">${ST[k]}</button>`).join("")}</div>
-      <p class="hint" style="margin:8px 0 0">"I sent it" starts the ${SET.followupDays}-day reminder${SET.maxFollowups?` (up to ${SET.maxFollowups} follow-up${SET.maxFollowups>1?"s":""})`:""}. Mark a reply or outcome to stop reminders.</p>
-      <label class="ap-field" style="margin-top:10px"><span>Note (optional)</span>${inp("m-note","")}</label></fieldset>
+    ${dr?`<div class="banner" style="background:var(--info-soft)"><p>Draft prepared by <b>${esc(dr.byName||dr.by)}</b> on ${fmtD(dr.at.slice(0,10))}.${isOwner?" Review it, edit if needed, then approve.":""}</p></div>`:""}
+    ${!isOwner?`<div class="banner"><p><b>Only ${esc(c.owner||"the client's rep")} can approve and send emails to this client.</b>${FULL?" You can prepare a draft for them below.":""}</p></div>`:""}
+    <div class="fg">${fld("To",inp("m-to",c.email,"email",isOwner?"":"readonly"),"wide")}${fld("Subject",inp("m-sub",subject,"text",canEdit?"":"readonly"),"wide")}
+      ${fld("Message",`<textarea id="m-body" style="min-height:260px"${canEdit?"":" readonly"}>${esc(body)}</textarea>`,"wide")}</div>
+    ${isOwner?(viaGmail?`<fieldset><legend>Send</legend><div class="sendrow">
+        <button class="ap-btn ap-primary" id="m-approve">${isFU?"Approve & send follow-up":"Approve & send"}</button>
+        <span class="hint" style="align-self:center">From <b>${esc(GMAIL.address())}</b>${GMAIL.connected()?"":" · the first time, Google asks you to allow Gmail"}</span></div>
+        <p class="hint" style="margin:8px 0 0">Two clicks: the second confirms the exact recipient. It appears in your Sent folder in Gmail and Outlook. ${SET.followupDays}-day reply reminder starts automatically.</p>
+        <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">Send it yourself instead</summary><div class="sendrow" style="margin-top:8px">
+          <button class="ap-btn ap-small" id="m-open">Open in ${sendWith==="outlook"?"Outlook":sendWith==="app"?"email app":"Gmail"}</button><button class="ap-btn ap-small" id="m-copy">Copy message</button>
+          <button class="ap-btn ap-small" id="m-sent">${isFU?"I sent the follow-up":"I sent it"}</button></div></details></fieldset>`
+      :`<div class="sendrow"><button class="ap-btn ap-primary" id="m-open">Open in ${sendWith==="outlook"?"Outlook":sendWith==="app"?"email app":"Gmail"}</button><button class="ap-btn" id="m-copy">Copy message</button><button class="ap-btn ap-small" id="m-sw" style="align-self:center">Change mailbox</button></div>
+        <fieldset><legend>After sending</legend><div class="sendrow"><button class="ap-btn ap-primary" id="m-sent">${isFU?"I sent the follow-up":"I sent it"}</button></div>
+        <p class="hint" style="margin:8px 0 0">"I sent it" starts the ${SET.followupDays}-day reminder${SET.maxFollowups?` (up to ${SET.maxFollowups} follow-up${SET.maxFollowups>1?"s":""})`:""}.</p></fieldset>`)
+      :(FULL?`<div class="sendrow"><button class="ap-btn ap-primary" id="m-draft">Save draft for ${esc(c.owner||"the rep")}</button></div>`:"")}
+    ${canEdit?`<fieldset><legend>Outcome</legend><div class="sendrow">${OUTCOMES.map(k=>`<button class="ap-btn ap-small" data-outcome="${k}">${ST[k]}</button>`).join("")}</div>
+      <p class="hint" style="margin:8px 0 0">Marking an outcome stops the reminders.</p>
+      <label class="ap-field" style="margin-top:10px"><span>Note (optional)</span>${inp("m-note","")}</label></fieldset>`:""}
     ${hist.length?`<fieldset><legend>History</legend><div class="hist">${hist.map(h=>`<div><b>${fmtD(h.at.slice(0,10))}</b> · ${esc(h.what)}${h.note?` · ${esc(h.note)}`:""} <span class="hint">(${esc(h.by)})</span></div>`).join("")}</div></fieldset>`:""}`,
     '<button class="ap-btn" id="m-close">Close</button><span class="spacer"></span><button class="ap-btn ap-small" id="m-client">Client details</button>');
   $("#m-close").onclick=close;$("#m-client").onclick=()=>{close();openClient(cid)};
-  $("#m-sw").onclick=()=>{close();pickSender()};
-  $("#m-open").onclick=()=>{const to=$("#m-to").value.trim();if(!to){derr("Add the client's email address first.");return}
+  if($("#m-sw"))$("#m-sw").onclick=()=>{close();pickSender()};
+  if($("#m-open"))$("#m-open").onclick=()=>{const to=$("#m-to").value.trim();if(!to){derr("Add the client's email address first.");return}
     window.open(composeUrl(to,$("#m-sub").value,$("#m-body").value),sendWith==="app"?"_self":"_blank","noopener")};
-  $("#m-copy").onclick=async()=>{try{await navigator.clipboard.writeText(`Subject: ${$("#m-sub").value}\n\n${$("#m-body").value}`);APP.toast("Copied")}catch(e){derr("Couldn't copy. Select the text and copy it yourself.")}};
+  if($("#m-copy"))$("#m-copy").onclick=async()=>{try{await navigator.clipboard.writeText(`Subject: ${$("#m-sub").value}\n\n${$("#m-body").value}`);APP.toast("Copied")}catch(e){derr("Couldn't copy. Select the text and copy it yourself.")}};
+  const note=()=>$("#m-note")?$("#m-note").value.trim():"";
+  const save=async next=>{const cc=await ensureClient(c);next.owner=cc.owner;delete next._id;await db.collection("outreach").doc(outId(s._id,cid)).set(next)};
+  const base=()=>o?{...o}:{seasonId:s._id,clientId:cid,followups:0,history:[]};
+  const markSent=(next,now)=>{
+    if(isFU){next.followups=(next.followups||0)+1;next.lastFollowUpAt=now}else{next.sentAt=now;next.followups=0}
+    if(isFU&&next.followups>=SET.maxFollowups){next.status="no_reply";next.nextFollowUp=""}else{next.status="sent";next.nextFollowUp=addDays(TODAY,SET.followupDays)}
+    next.draft=null;
+  };
   const record=async(status,what)=>{
     if(!canEdit){derr("Only the client's rep or a sales lead can update this.");return}
-    const now=new Date().toISOString(),note=$("#m-note").value.trim();
-    try{
-      const cc=await ensureClient(c);
-      const prev=o||{seasonId:s._id,clientId:cid,owner:cc.owner,followups:0,history:[]};
-      const next={...prev,owner:cc.owner,status,updatedAt:now,updatedBy:me.email,history:[...(prev.history||[]),{at:now,by:MYNAME,what,note}]};
-      delete next._id;
-      if(status==="sent"){
-        if(isFU){next.followups=(prev.followups||0)+1;next.lastFollowUpAt=now}else{next.sentAt=now;next.followups=0}
-        if(next.followups>=SET.maxFollowups&&isFU){next.status="no_reply";next.nextFollowUp=""}else next.nextFollowUp=addDays(TODAY,SET.followupDays);
-      }else next.nextFollowUp="";
-      await db.collection("outreach").doc(outId(s._id,cid)).set(next);
-      APP.toast(status==="sent"?(next.status==="no_reply"?"Saved. No more follow-ups for this client this season.":`Saved. Reminder on ${fmtD(next.nextFollowUp)}.`):"Saved");close();
-    }catch(e){derr(err(e))}
+    if(status==="sent"&&!isOwner){derr(`Only ${c.owner} can send emails to this client.`);return}
+    const now=new Date().toISOString(),next={...base(),updatedAt:now,updatedBy:me.email};
+    next.history=[...(next.history||[]),{at:now,by:MYNAME,what,note:note()}];
+    if(status==="sent")markSent(next,now);else{next.status=status;next.nextFollowUp=""}
+    try{await save(next);
+      APP.toast(status==="sent"?(next.status==="no_reply"?"Saved. No more follow-ups for this client this season.":`Saved. Reminder on ${fmtD(next.nextFollowUp)}.`):"Saved");close()}
+    catch(e){derr(err(e))}
   };
-  $("#m-sent").onclick=()=>record("sent",isFU?`Follow-up ${(o.followups||0)+1} sent`:"Email sent");
+  if($("#m-sent"))$("#m-sent").onclick=()=>record("sent",isFU?`Follow-up ${(o.followups||0)+1} sent (by hand)`:"Email sent (by hand)");
   document.querySelectorAll("[data-outcome]").forEach(b=>b.onclick=()=>record(b.dataset.outcome,ST[b.dataset.outcome]));
+  if($("#m-draft"))$("#m-draft").onclick=async()=>{
+    const now=new Date().toISOString(),next={...base(),status:o?o.status:"todo",updatedAt:now,updatedBy:me.email};
+    next.draft={subject:$("#m-sub").value,body:$("#m-body").value,isFU,by:me.email,byName:MYNAME,at:now};
+    next.history=[...(next.history||[]),{at:now,by:MYNAME,what:`Draft prepared for ${c.owner}`,note:""}];
+    try{await save(next);APP.toast(`Draft saved. ${c.owner} will see it when they open this client.`);close()}catch(e){derr(err(e))}
+  };
+  if($("#m-approve")){let armed=false;$("#m-approve").onclick=async()=>{
+    const to=$("#m-to").value.trim();if(!to){derr("Add the client's email address first.");return}
+    if(!armed){armed=true;$("#m-approve").textContent=`Click again to send to ${to}`;return}
+    const btn=$("#m-approve");btn.disabled=true;btn.textContent="Sending…";derr("");
+    try{
+      const r=await GMAIL.send({to,subject:$("#m-sub").value,body:$("#m-body").value,threadId:isFU?o.threadId:undefined,inReplyTo:isFU?o.messageId:undefined});
+      const now=new Date().toISOString(),next={...base(),updatedAt:now,updatedBy:me.email,sentFrom:GMAIL.address()};
+      if(!isFU){next.threadId=r.threadId;next.messageId=r.messageId}
+      next.history=[...(next.history||[]),{at:now,by:MYNAME,what:(isFU?`Follow-up ${(o.followups||0)+1}`:"Email")+` sent from ${GMAIL.address()} (approved by ${MYNAME})`,note:note()}];
+      markSent(next,now);
+      try{await save(next)}catch(e){derr("The email was sent, but saving the status failed. Click \"I sent it\" so the reminder starts.");btn.textContent="Sent";return}
+      APP.toast(`Sent to ${to}.`+(next.status==="no_reply"?" That was the last follow-up.":` Reminder on ${fmtD(next.nextFollowUp)}.`));close();
+    }catch(e){armed=false;btn.disabled=false;btn.textContent=isFU?"Approve & send follow-up":"Approve & send";derr(e.message||"Couldn't send.")}
+  }}
 }
+
+// replies: look at Gmail conversations the rep started from the dashboard (only whether someone else wrote back)
+async function checkReplies(interactive){
+  if(!GMAIL.available())return;
+  const mine=Object.values(OUT).filter(o=>o.owner===MYNAME&&o.status==="sent"&&o.threadId&&o.sentFrom===GMAIL.address());
+  if(!mine.length){if(interactive)APP.toast("No emails waiting for a reply.");return}
+  try{if(interactive)await GMAIL.connect();else if(!GMAIL.connected())return}catch(e){APP.toast(e.message);return}
+  let n=0;
+  for(const o of mine){try{if(await GMAIL.hasReply(o.threadId)){const now=new Date().toISOString();
+    await db.collection("outreach").doc(o._id).update({status:"replied",nextFollowUp:"",updatedAt:now,updatedBy:me.email,
+      history:[...(o.history||[]),{at:now,by:"Gmail",what:"Reply received",note:""}]});n++}}catch(e){if(interactive){APP.toast(e.message);return}}}
+  if(interactive||n)APP.toast(n?`${n} client${n===1?"":"s"} replied. Marked as Replied.`:"No new replies yet.");
+}
+
 
 function openClient(cid){
   const c=cid?clientList().find(x=>x._id===cid):{virtual:true,owner:MYNAME,tags:[]};if(cid&&!c)return;
@@ -488,7 +544,7 @@ db.doc("settings/clients").onSnapshot(s=>{const d=s.exists?s.data():{};SET={...D
 (FULL?db.collection("clients"):db.collection("clients").where("owner","==",MYNAME)).onSnapshot(snap=>{CL={};snap.docs.forEach(d=>{CL[d.id]={...d.data(),_id:d.id}});loaded.cl=true;render();syncFromOrders()},
   ()=>{loaded.cl=true;render()});
 db.collection("seasons").onSnapshot(snap=>{SEAS=snap.docs.map(d=>({...d.data(),_id:d.id}));loaded.se=true;render()},()=>{loaded.se=true;render()});
-(FULL?db.collection("outreach"):db.collection("outreach").where("owner","==",MYNAME)).onSnapshot(snap=>{OUT={};snap.docs.forEach(d=>{OUT[d.id]={...d.data(),_id:d.id}});loaded.out=true;render()},()=>{loaded.out=true;render()});
+(FULL?db.collection("outreach"):db.collection("outreach").where("owner","==",MYNAME)).onSnapshot(snap=>{OUT={};snap.docs.forEach(d=>{OUT[d.id]={...d.data(),_id:d.id}});if(!loaded.out)setTimeout(()=>checkReplies(false),500);loaded.out=true;render()},()=>{loaded.out=true;render()});
 if(SALES!=="none"){
   db.doc("settings/config").get().then(s=>{if(s.exists){const d=s.data();SALESCFG={quote:d.quoteStatus||"Quote",cancelled:d.cancelledStatus||"Cancelled"}}}).catch(()=>{});
   (SALES==="full"?db.collection("orders"):db.collection("orders").where("salesRep","==",MYNAME)).onSnapshot(snap=>{ORD=snap.docs.map(d=>d.data());STATS=ordersByClient();loaded.ord=true;render();syncFromOrders()},()=>{loaded.ord=true;render()});
