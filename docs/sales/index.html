@@ -86,7 +86,7 @@ textarea{resize:vertical;min-height:60px}
 .chart svg{display:block;width:100%;overflow:visible}
 .chart text{fill:var(--muted);font-size:11px;font-family:var(--f-body)}
 .chart .vlab{fill:var(--ink-2);font-size:11px;font-weight:600}
-.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.4;white-space:nowrap;z-index:5;transform:translate(-50%,calc(-100% - 10px))}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.4;white-space:nowrap;z-index:60;transform:translate(-50%,calc(-100% - 10px))}
 .tip b{font-weight:700}
 .tip[hidden]{display:none}
 .tbl-wrap{overflow-x:auto;margin-top:4px}
@@ -149,6 +149,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
   <div class="brand"><h1>Sales Navigator</h1><span>Promotional products</span></div>
   <nav class="tabs" role="tablist">
     <button role="tab" id="tab-dash" aria-selected="true" data-tab="dash">Dashboard</button>
+    <button role="tab" id="tab-customers" aria-selected="false" data-tab="customers">Customers</button>
     <button role="tab" id="tab-orders" aria-selected="false" data-tab="orders">Orders</button>
     <button role="tab" id="tab-settings" aria-selected="false" data-tab="settings">Settings</button>
   </nav>
@@ -184,6 +185,23 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
     <div class="card" style="margin-top:12px"><h2>Monthly breakdown</h2><div class="sub" id="bd-sub"></div><div class="tbl-wrap"><table id="breakdown"></table></div></div>
   </section>
 
+  <!-- CUSTOMERS -->
+  <section id="view-customers" hidden>
+    <div class="filters">
+      <div class="field"><label for="c-year">Year</label><select id="c-year"></select></div>
+      <div class="field"><label for="c-rep">Sales rep</label><select id="c-rep"></select></div>
+      <div class="field"><span class="lbl">Group by</span><div class="seg" id="c-by"><button data-b="company" aria-pressed="true">Client company</button><button data-b="contact" aria-pressed="false">Contact person</button></div></div>
+      <div class="field"><span class="lbl">Chart by</span><div class="seg" id="c-metric"><button data-m="sales">Sales $</button><button data-m="orders">Orders</button><button data-m="gross">Gross profit</button><button data-m="net">Net profit</button></div></div>
+      <div class="field" style="flex:1 1 200px;max-width:280px"><label for="c-search">Search</label><input type="search" id="c-search" placeholder="Company, contact or email"></div>
+    </div>
+    <div class="kpis" id="c-kpis"></div>
+    <div class="grid2">
+      <div class="card"><h2 id="c-top-title">Top customers</h2><div class="sub" id="c-top-sub"></div><div class="chart" id="c-top"></div></div>
+      <div class="card"><h2>New vs repeat customers</h2><div class="sub" id="c-mix-sub"></div><div class="chart" id="c-mix"></div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><h2 id="c-tbl-title">All customers</h2><div class="sub">Click a column to sort, click a customer to see their orders, contacts and trend.</div><div class="tbl-wrap"><table id="c-tbl"></table></div></div>
+  </section>
+
   <!-- ORDERS -->
   <section id="view-orders" hidden>
     <div class="toolbar">
@@ -212,7 +230,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
           <div class="field"><label for="st-suptax">Tax % to supplier</label><input type="number" step="0.01" id="st-suptax"></div>
           <div class="field"><label for="st-custax">Tax % customer pays</label><input type="number" step="0.01" id="st-custax"></div>
           <div class="field"><label for="st-fee">Payment platform fee %</label><input type="number" step="0.01" id="st-fee"></div>
-          <div class="field"><label for="st-feeon">Fee applies to</label><select id="st-feeon"><option value="card">Card platforms only (Stripe, PayPal, Square)</option><option value="all">All payment platforms</option></select></div>
+          <div class="field"><label for="st-feeon">Fee applies to</label><select id="st-feeon"><option value="card">Card platforms only (ticked under Dropdown lists → Payment platform)</option><option value="all">All payment platforms</option></select></div>
         </div>
         <p class="note" style="margin:10px 0 0">Sales rep commission is a $ amount entered on each line.</p>
       </div>
@@ -222,6 +240,12 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
       <div class="card"><h2>Counted in sales</h2><div class="sub">Order statuses included in dashboard totals.</div><div id="st-statuses"></div></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" id="btn-save-settings">Save settings</button></div>
+    <div class="card" style="margin-top:16px"><h2>Dropdown lists</h2>
+      <div class="sub">Add, rename, reorder or remove the choices in the order form. Renaming a choice also updates the orders that use it. Removing a choice keeps it on existing orders.</div>
+      <div class="field" style="max-width:340px;margin-bottom:12px"><label for="dl-pick">List</label><select id="dl-pick"></select></div>
+      <div id="dl-items"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px"><button class="btn" id="dl-add">+ Add choice</button><span class="spacer"></span><button class="btn primary" id="dl-save">Save this list</button></div>
+    </div>
     <div class="card" style="margin-top:16px"><h2>How profit is calculated</h2><div class="colmap" id="formula"></div></div>
   </section>
 </main>
@@ -234,23 +258,37 @@ legend{font-weight:700;font-size:13px;padding:0 6px}
 "use strict";
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTHS_L=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const STATUSES=["Quote","Pending","Ordered","In Production","Shipped","Delivered","Cancelled"];
-const STATUS_CLS={"Quote":"","Pending":"warn","Ordered":"info","In Production":"info","Shipped":"info","Delivered":"good","Cancelled":"crit"};
-const CARD_PLATFORMS=["Stripe","PayPal","Square","Shopify Payments"];
+/* Dropdown lists, editable in Settings → Dropdown lists (saved as settings.lists[k]). These are the starting values.
+   blank:true = the form also offers an empty "—" choice. */
+const LIST_DEFS=[
+ {k:"priority",l:"Priority",o:["Normal","High","Rush","Low"]},
+ {k:"status",l:"Order status",o:["Quote","Pending","Ordered","In Production","Shipped","Delivered","Cancelled"]},
+ {k:"cac",l:"Customer acquisition channel",blank:true,o:["Referral","Repeat client","Website","Cold outreach","LinkedIn","Email campaign","Trade show","Other"]},
+ {k:"productCategory",l:"Product category",blank:true,o:["Apparel","Headwear","Drinkware","Bags","Writing","Tech","Office","Signage & Displays","Print","Outdoor","Other"]},
+ {k:"decorationMethod",l:"Decoration method",blank:true,o:["Screen print","Embroidery","Laser engraving","Pad print","DTF transfer","Sublimation","Full-color digital","Deboss/Emboss","Other"]},
+ {k:"paymentPlatform",l:"Payment platform",blank:true,o:["Stripe","PayPal","Square","Shopify Payments","ACH / bank transfer","Check","E-transfer","Cash","Other"]},
+ {k:"shippingCompany",l:"Shipping company",blank:true,o:["UPS","FedEx","USPS","DHL","Canada Post","Purolator","Freight / LTL","Local pickup","Other"]},
+];
+const LD=Object.fromEntries(LIST_DEFS.map(d=>[d.k,d]));
 const DEFAULT_SETTINGS={reps:["Rep 1","Rep 2","Rep 3"],supplierTaxPct:0,customerTaxPct:0,platformFeePct:2.9,feeOn:"card",
-  deductCustomerTax:true,countStatuses:["Pending","Ordered","In Production","Shipped","Delivered"]};
+  deductCustomerTax:true,countStatuses:["Pending","Ordered","In Production","Shipped","Delivered"],
+  lists:{},quoteStatus:"Quote",cancelledStatus:"Cancelled",cardPlatforms:["Stripe","PayPal","Square","Shopify Payments"]};
+const opts=k=>S.lists&&Array.isArray(S.lists[k])?S.lists[k]:LD[k].o;
+const statuses=()=>opts("status");
+// the quote and cancelled statuses can be renamed but not removed: totals and refunds depend on them
+function statusCls(s){if(s===S.cancelledStatus)return "crit";if(s===S.quoteStatus)return "";return s==="Delivered"?"good":s==="Pending"?"warn":"info"}
 
 /* Field list. order:true = shared by every product line in the same Order #.
    al = other header names accepted on import (your original sheet's columns). */
 const F=[
- {s:"Order",k:"priority",l:"Priority",t:"select",o:["Normal","High","Rush","Low"],order:true},
+ {s:"Order",k:"priority",l:"Priority",t:"select",list:"priority",order:true},
  {s:"Order",k:"orderNumber",l:"Order #",order:true,al:["Order#","Order Number","Invoice #"]},
- {s:"Order",k:"status",l:"Status",t:"select",o:STATUSES,order:true},
+ {s:"Order",k:"status",l:"Status",t:"select",list:"status",order:true},
  {s:"Order",k:"salesRep",l:"Sales Rep",t:"rep",order:true},
  {s:"Order",k:"orderDate",l:"Order Date",t:"date",order:true},
  {s:"Order",k:"inHandsDate",l:"In-Hands Date",t:"date",order:true},
  {s:"Order",k:"poNumber",l:"Client PO #",order:true,al:["PO #"]},
- {s:"Order",k:"cac",l:"Customer Acquisition Channel",t:"select",o:["","Referral","Repeat client","Website","Cold outreach","LinkedIn","Email campaign","Trade show","Other"],order:true,al:["Customer Acquisition Channel (CAC)"]},
+ {s:"Order",k:"cac",l:"Customer Acquisition Channel",t:"select",list:"cac",order:true,al:["Customer Acquisition Channel (CAC)"]},
  {s:"Client",k:"clientName",l:"Client Name",order:true},
  {s:"Client",k:"clientTitle",l:"Client Designation",order:true,al:["Client Title"]},
  {s:"Client",k:"companyName",l:"Client Company",order:true,al:["Company Name"]},
@@ -264,8 +302,8 @@ const F=[
  {s:"Product",k:"supplierItem",l:"Product ID from Supplier",al:["Supplier Item#"]},
  {s:"Product",k:"websiteItem",l:"Product ID at Our Website",al:["Website Item#"]},
  {s:"Product",k:"quantity",l:"Number of Items",t:"num",al:["Quantity"]},
- {s:"Product",k:"productCategory",l:"Product Category",t:"select",o:["","Apparel","Headwear","Drinkware","Bags","Writing","Tech","Office","Signage & Displays","Print","Outdoor","Other"]},
- {s:"Product",k:"decorationMethod",l:"Decoration Method",t:"select",o:["","Screen print","Embroidery","Laser engraving","Pad print","DTF transfer","Sublimation","Full-color digital","Deboss/Emboss","Other"]},
+ {s:"Product",k:"productCategory",l:"Product Category",t:"select",list:"productCategory"},
+ {s:"Product",k:"decorationMethod",l:"Decoration Method",t:"select",list:"decorationMethod"},
  {s:"Costs",k:"unitCost",l:"Item Cost (per unit)",t:"money",al:["Unit Cost NET"]},
  {s:"Costs",k:"setupCost",l:"Setup Cost",t:"money",al:["Setup Cost NET"]},
  {s:"Costs",k:"unitRunCharges",l:"Running Charge (per unit)",t:"money",al:["Unit Run Charges NET"]},
@@ -276,7 +314,7 @@ const F=[
  {s:"Costs",k:"supplierTaxPct",l:"Tax % to Supplier",t:"num",auto:"supTaxPct"},
  {s:"Costs",k:"supplierTax",l:"Tax to Supplier $",t:"calc",fmt:"money2"},
  {s:"Costs",k:"commissionValue",l:"Sales Rep Commission $",t:"money",hint:"Entered manually · lowers net profit only",al:["Sales Rep Commission Value","Sales Rep Commission"]},
- {s:"Costs",k:"paymentPlatform",l:"Payment Platform",t:"select",o:["","Stripe","PayPal","Square","Shopify Payments","ACH / bank transfer","Check","E-transfer","Cash","Other"],order:true},
+ {s:"Costs",k:"paymentPlatform",l:"Payment Platform",t:"select",list:"paymentPlatform",order:true},
  {s:"Costs",k:"platformFee",l:"Payment Platform Fee",t:"pair"},
  {s:"Costs",k:"totalCost",l:"Total Cost",t:"calc",fmt:"money2",hint:"Excludes rep commission and platform fee"},
  {s:"Price",k:"customerUnitPrice",l:"Price per Unit",t:"money",al:["Customer Unit Price (All-in)"]},
@@ -289,7 +327,7 @@ const F=[
  {s:"Price",k:"netMargin",l:"Net Margin %",t:"calc",fmt:"pct"},
  {s:"Payment & delivery",k:"invoicePaidDate",l:"Date Invoice Paid by Client",t:"date",order:true,al:["Date Invoice paid by client"]},
  {s:"Payment & delivery",k:"poPaidDate",l:"Date PO Paid to Supplier",t:"date",al:["Date PO paid by Aurora"]},
- {s:"Payment & delivery",k:"shippingCompany",l:"Shipping Company",t:"select",o:["","UPS","FedEx","USPS","DHL","Canada Post","Purolator","Freight / LTL","Local pickup","Other"]},
+ {s:"Payment & delivery",k:"shippingCompany",l:"Shipping Company",t:"select",list:"shippingCompany"},
  {s:"Payment & delivery",k:"trackingNumber",l:"Tracking Number"},
  {s:"Payment & delivery",k:"deliveryAddress",l:"Delivery Address",t:"area",wide:true,order:true},
  {s:"Payment & delivery",k:"shippedDate",l:"Shipped Date",t:"date"},
@@ -308,7 +346,8 @@ let db=null,S=structuredClone(DEFAULT_SETTINGS);
 let ORDERS=[],loaded=false,dbState="loading";
 // access from the dashboard sign-in: full = all orders, delete and settings; limited = only orders where they are the sales rep, add and edit only
 let FULL=true,MY_REP="";
-const ui={tab:"dash",year:String(new Date().getFullYear()),month:"all",rep:"all",metric:"sales",search:"",ostatus:"all",orep:"all",oview:"orders"};
+const ui={tab:"dash",year:String(new Date().getFullYear()),month:"all",rep:"all",metric:"sales",search:"",ostatus:"all",orep:"all",oview:"orders",
+  cyear:"all",crep:"all",cby:"company",cmetric:"sales",csort:"sales",cdesc:true,csearch:""};
 try{Object.assign(ui,JSON.parse(localStorage.getItem("sn-ui2")||"{}"))}catch(e){}
 function saveUi(){try{localStorage.setItem("sn-ui2",JSON.stringify(ui))}catch(e){}}
 
@@ -343,12 +382,12 @@ function calc(o){
   const totalPrice=subtotal+customerTax;
   // payment platform fee
   const feeType=o.platformFeeType||"%";
-  let feeAuto=0; const feeApplies=S.feeOn==="all"?has(o.paymentPlatform):CARD_PLATFORMS.includes(o.paymentPlatform);
+  let feeAuto=0; const feeApplies=S.feeOn==="all"?has(o.paymentPlatform):(S.cardPlatforms||[]).includes(o.paymentPlatform);
   if(feeApplies)feeAuto=num(S.platformFeePct);
   const feeVal=has(o.platformFeeValue)?num(o.platformFeeValue):(feeType==="%"?feeAuto:0);
   const platformFee=feeType==="$"?feeVal:totalPrice*feeVal/100;
   // a refund only happens when the client cancels; on any other status it is ignored
-  const refund=o.status==="Cancelled"?num(o.refundFee):0;
+  const refund=o.status===S.cancelledStatus?num(o.refundFee):0;
   // platform fee and rep commission are not costs for gross profit; they only lower net profit
   const totalCost=base+supplierTax+refund;
   const grossPnL=totalPrice-totalCost;
@@ -367,10 +406,15 @@ const counted=o=>S.countStatuses.includes(o.status||"Pending");
 
 function agg(list){
   const a={sales:0,lines:list.length,gross:0,net:0,cost:0,comm:0,fee:0,tax:0,ctax:0,onT:0,onN:0,days:0,dayN:0};
-  const ordersOn={};
+  const ordersOn={},span={};
   for(const o of list){const c=o._c;a.sales+=c.totalPrice;a.gross+=c.grossPnL;a.net+=c.netPnL;a.cost+=c.totalCost;a.comm+=c.commission;a.fee+=c.platformFee;a.tax+=c.taxAdj;a.ctax+=c.customerTax;
-    const k=orderKey(o);if(c.onTime!==null){ordersOn[k]=ordersOn[k]===false?false:c.onTime} if(c.orderTimeline!==null){a.days+=c.orderTimeline;a.dayN++}}
+    const k=orderKey(o);if(c.onTime!==null){ordersOn[k]=ordersOn[k]===false?false:c.onTime}
+    const sp=span[k]||(span[k]={start:"",end:"",open:false});
+    if(has(o.orderDate)&&(!sp.start||o.orderDate<sp.start))sp.start=o.orderDate;
+    if(!has(o.deliveryDate))sp.open=true;else if(o.deliveryDate>sp.end)sp.end=o.deliveryDate}
   Object.values(ordersOn).forEach(v=>{a.onN++;if(v)a.onT++});
+  // days order → delivery: once per order, from its order date to the day its last product was delivered (only fully delivered orders)
+  Object.values(span).forEach(sp=>{if(sp.open||!sp.start||!sp.end)return;const d=dayDiff(sp.start,sp.end);if(d!==null&&d>=0){a.days+=d;a.dayN++}});
   a.orders=uniqOrders(list);a.gm=a.sales?a.gross/a.sales:NaN;a.nm=a.sales?a.net/a.sales:NaN;a.aov=a.orders?a.sales/a.orders:0;return a;
 }
 const METRIC={sales:{l:"Sales",c:compact},orders:{l:"Orders",c:v=>fint.format(v)},gross:{l:"Gross profit",c:compact},net:{l:"Net profit",c:compact}};
@@ -386,7 +430,7 @@ function renderFilters(){
   const reps=allReps(),un=ORDERS.some(o=>!o.salesRep)?[["__none","Unassigned"]]:[];
   fillSelect($("#f-rep"),[["all","All reps"],...reps.map(r=>[r,r]),...un],ui.rep);
   fillSelect($("#o-rep"),[["all","All reps"],...reps.map(r=>[r,r]),...un],ui.orep);
-  fillSelect($("#o-status"),[["all","All statuses"],...STATUSES.map(s=>[s,s])],ui.ostatus);
+  fillSelect($("#o-status"),[["all","All statuses"],...statuses().map(s=>[s,s])],ui.ostatus);
   document.querySelectorAll("#metric-seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===ui.metric));
   document.querySelectorAll("#o-view button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===ui.oview));
 }
@@ -475,7 +519,7 @@ function barChart(host,pts,M,opt){
   host.querySelectorAll("rect[data-i]").forEach(r=>{const i=+r.dataset.i,p=pts[i];
     r.addEventListener("mousemove",()=>showTip(host,pl+bw*i+bw/2,Math.min(Y(p.v),Y(0)),tipHtml(p.label,p.g)));r.addEventListener("mouseleave",hideTip)});
 }
-function hbarChart(host,rows,M,dim){
+function hbarChart(host,rows,M,dim,onPick){
   const W=Math.max(260,host.clientWidth||400),rh=34,pl=Math.min(120,W*0.32),pr=64,pt=4,H=pt+rows.length*rh+4;
   if(!rows.length||rows.every(r=>r.v===0)){host.innerHTML=`<div class="empty" style="padding:60px 0"><h3>No rep data yet</h3>Assign a sales rep on each order.</div>`;return}
   const mx=Math.max(0,...rows.map(r=>r.v)),mn=Math.min(0,...rows.map(r=>r.v)),span=(mx-mn)||1,iw=W-pl-pr;const X=v=>pl+iw*(v-mn)/span;
@@ -488,8 +532,154 @@ function hbarChart(host,rows,M,dim){
   host.innerHTML=s+`<line x1="${X(0)}" x2="${X(0)}" y1="${pt}" y2="${H-4}" stroke="var(--axis)"/></svg>`;
   host.querySelectorAll("rect[data-i]").forEach(el=>{const i=+el.dataset.i,r=rows[i];
     el.addEventListener("mousemove",()=>showTip(host,X(r.v),pt+i*rh+6,tipHtml(r.label,r.g)));el.addEventListener("mouseleave",hideTip);
-    el.addEventListener("click",()=>{ui.rep=ui.rep===r.key?"all":r.key;saveUi();renderAll()})});
+    el.addEventListener("click",()=>{if(onPick){onPick(r);return}ui.rep=ui.rep===r.key?"all":r.key;saveUi();renderAll()})});
 }
+
+// ---------- customers ----------
+// A customer is a client company (matched on the trimmed, case-insensitive name) or a contact person
+// (matched on email, else on name + company). Only counted statuses are included, as on the dashboard.
+const normTxt=s=>String(s??"").trim().replace(/\s+/g," ");
+function custKey(o,by){
+  const co=normTxt(o.companyName).toLowerCase();
+  if(by==="company")return "c:"+co;
+  const em=normTxt(o.clientEmail).toLowerCase(),nm=normTxt(o.clientName).toLowerCase();
+  return em?"e:"+em:"n:"+nm+"|"+co;
+}
+function custGroups(list,by){
+  const m=new Map();
+  for(const o of list){
+    const k=custKey(o,by);let g=m.get(k);
+    if(!g){g={key:k,lines:[],sp:{name:{},company:{},email:{},phone:{}}};m.set(k,g)}
+    g.lines.push(o);const d=o.orderDate||"";
+    // remember the most recently used spelling of each detail
+    [["name",o.clientName],["company",o.companyName],["email",o.clientEmail],["phone",o.clientPhone]].forEach(([f,v])=>{v=normTxt(v);if(v&&!((g.sp[f][v]||"")>d))g.sp[f][v]=d});
+  }
+  const latest=obj=>Object.entries(obj).sort((a,b)=>b[1].localeCompare(a[1]))[0]?.[0]||"";
+  return [...m.values()].map(g=>{
+    const a=agg(g.lines),ds=g.lines.map(o=>o.orderDate).filter(Boolean).sort();
+    const company=latest(g.sp.company),name=latest(g.sp.name),email=latest(g.sp.email);
+    return Object.assign(g,{a,company,name,email,phone:latest(g.sp.phone),first:ds[0]||"",last:ds[ds.length-1]||"",
+      label:by==="company"?(company||"(No company)"):(name||email||"(No contact name)"),
+      contacts:by==="company"?new Set(g.lines.map(o=>custKey(o,"contact"))).size:0});
+  });
+}
+const CCOLS={company:[["label","Client company"],["contacts","Contacts",1]],contact:[["label","Contact person"],["company","Company"]]};
+const CNUM=[["orders","Orders"],["sales","Sales"],["share","Share"],["aov","Avg order"],["gross","Gross profit"],["gm","Gross margin"],["net","Net profit"],["nm","Net margin"],["last","Last order"]];
+function csortVal(g,k,tot){
+  if(k==="label"||k==="company")return String(g[k]||"").toLowerCase();
+  if(k==="contacts")return g.contacts;if(k==="last")return g.last;if(k==="share")return tot?g.a.sales/tot:0;
+  const v=g.a[k];return isFinite(v)?v:-Infinity;
+}
+function renderCustomers(){
+  const ys=years();if(ui.cyear!=="all"&&!ys.includes(ui.cyear))ui.cyear="all";
+  fillSelect($("#c-year"),[["all","All years"],...ys.map(y=>[y,y])],ui.cyear);
+  const reps=allReps(),un=ORDERS.some(o=>!o.salesRep)?[["__none","Unassigned"]]:[];
+  fillSelect($("#c-rep"),[["all","All reps"],...reps.map(r=>[r,r]),...un],ui.crep);
+  $("#c-rep").closest(".field").hidden=!FULL;
+  document.querySelectorAll("#c-by button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.b===ui.cby));
+  document.querySelectorAll("#c-metric button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===ui.cmetric));
+  if($("#c-search").value!==ui.csearch)$("#c-search").value=ui.csearch;
+  if(!loaded){$("#c-tbl").innerHTML=`<tbody><tr><td class="empty">Loading…</td></tr></tbody>`;return}
+
+  const byRep=ORDERS.filter(o=>counted(o)&&repMatch(o,ui.crep));
+  const sel=byRep.filter(o=>ui.cyear==="all"||ym(o).y===ui.cyear);
+  let groups=custGroups(sel,ui.cby);
+  const q=ui.csearch.trim().toLowerCase();
+  if(q)groups=groups.filter(g=>[g.label,g.company,g.name,g.email].some(v=>String(v).toLowerCase().includes(q)));
+  const tot=agg(groups.flatMap(g=>g.lines)),who=ui.cby==="company"?"companies":"contacts";
+  const per=(ui.cyear==="all"?"All years":ui.cyear)+" · "+repName(ui.crep);
+
+  const n=groups.length,repeat=groups.filter(g=>g.a.orders>1).length,top=[...groups].sort((x,y)=>y.a.sales-x.a.sales)[0];
+  const tiles=[
+    ["Customers",fint.format(n),`${who} with counted orders · ${per}`],
+    ["Repeat customers",n?pct(repeat/n):"—",`${repeat} of ${n} ordered more than once`],
+    ["Avg sales per customer",money(n?tot.sales/n:0),`${money(tot.sales)} total sales`],
+    ["Avg order value",money(tot.aov),`${fint.format(tot.orders)} orders`],
+    ["Top customer",top?top.label:"—",top?`${money(top.a.sales)} · ${tot.sales?pct(top.a.sales/tot.sales):"—"} of sales`:"No orders yet",1],
+  ];
+  $("#c-kpis").innerHTML=tiles.map(([l,v,s,small])=>`<div class="kpi"><span class="lbl">${l}</span><span class="v"${small?' style="font-size:18px;line-height:1.3;overflow-wrap:anywhere"':""}>${esc(v)}</span><span class="s">${esc(s)}</span></div>`).join("");
+
+  const M=METRIC[ui.cmetric],val=a=>ui.cmetric==="orders"?a.orders:a[ui.cmetric];
+  const ranked=[...groups].sort((x,y)=>val(y.a)-val(x.a)).slice(0,10);
+  $("#c-top-title").textContent=`Top ${ranked.length||""} ${who} by ${M.l.toLowerCase()}`;$("#c-top-sub").textContent=per+" · click a bar for details";
+  hbarChart($("#c-top"),ranked.map(g=>({key:g.key,label:g.label,v:val(g.a),g:g.a,color:"var(--s1)",hi:false})),M,false,r=>openCustomer(r.key));
+
+  // new vs repeat: a customer is "new" in the period of their first counted order ever
+  const first=new Map();byRep.forEach(o=>{const k=custKey(o,ui.cby);if(o.orderDate&&(!first.has(k)||o.orderDate<first.get(k)))first.set(k,o.orderDate)});
+  const periods=ui.cyear==="all"?[...new Set(byRep.map(o=>ym(o).y).filter(Boolean))].sort().map(y=>[y,y])
+    :MONTHS.map((m,i)=>[`${ui.cyear}-${String(i+1).padStart(2,"0")}`,m]);
+  const mix=periods.map(([p,label])=>{const seen=new Set();byRep.forEach(o=>{if((o.orderDate||"").startsWith(p))seen.add(custKey(o,ui.cby))});
+    let a=0;seen.forEach(k=>{if((first.get(k)||"").startsWith(p))a++});return {label,a,b:seen.size-a}});
+  $("#c-mix-sub").textContent=(ui.cyear==="all"?"By year":"By month, "+ui.cyear)+` · ${who} who ordered, ${repName(ui.crep)}`;
+  stackChart($("#c-mix"),mix);
+
+  $("#c-tbl-title").textContent=`All ${who} (${n})`;
+  const cols=[...CCOLS[ui.cby],...CNUM];
+  if(!cols.some(c=>c[0]===ui.csort))ui.csort="sales";
+  groups.sort((x,y)=>{const a=csortVal(x,ui.csort,tot.sales),b=csortVal(y,ui.csort,tot.sales);return (a<b?-1:a>b?1:0)*(ui.cdesc?-1:1)});
+  const th=([k,l,numeric])=>{const on=ui.csort===k;const n2=numeric||CNUM.some(c=>c[0]===k)&&k!=="last";
+    return `<th class="${n2?"n":""}" data-sort="${k}" style="cursor:pointer" aria-sort="${on?(ui.cdesc?"descending":"ascending"):"none"}">${l}${on?(ui.cdesc?" ↓":" ↑"):""}</th>`};
+  const cells=g=>`<td class="n">${g.a.orders}</td><td class="n">${money(g.a.sales)}</td><td class="n">${tot.sales?pct(g.a.sales/tot.sales):"—"}</td><td class="n">${money(g.a.aov)}</td>
+    <td class="n${g.a.gross<0?" neg":""}">${money(g.a.gross)}</td><td class="n">${pct(g.a.gm)}</td><td class="n${g.a.net<0?" neg":""}">${money(g.a.net)}</td><td class="n">${pct(g.a.nm)}</td><td>${esc(g.last||"—")}</td>`;
+  $("#c-tbl").innerHTML=`<thead><tr>${cols.map(th).join("")}</tr></thead><tbody>`+
+    (groups.length?groups.map(g=>`<tr class="click" data-cust="${esc(g.key)}"><td><b>${esc(g.label)}</b>${g.lines.some(o=>o.sample)?'<span class="tag">Example</span>':""}</td>
+      <td${ui.cby==="company"?' class="n"':""}>${ui.cby==="company"?g.contacts:esc(g.company||"—")}</td>${cells(g)}</tr>`).join("")
+    :`<tr><td colspan="${cols.length}" class="empty">No customers for this selection yet.</td></tr>`)+`</tbody>`+
+    (groups.length?`<tfoot><tr class="tot"><td>Total</td><td></td>${cells({a:tot,last:""}).replace(/<td>—<\/td>$/,"<td></td>")}</tr></tfoot>`:"");
+}
+function stackChart(host,pts){
+  const W=Math.max(280,host.clientWidth||500),H=230,pl=34,pr=8,pt=24,pb=26;
+  const mx=Math.max(0,...pts.map(p=>p.a+p.b));
+  if(!pts.length||!mx){host.innerHTML=`<div class="empty" style="padding:50px 0"><h3>No data for this view</h3></div>`;return}
+  const top=Math.max(4,Math.ceil(mx/4)*4),ih=H-pt-pb,iw=W-pl-pr,Y=v=>pt+ih*(top-v)/top,bw=iw/pts.length,w=Math.max(4,Math.min(40,bw*.6));
+  let s=`<div class="legend"><span><span class="dot" style="background:var(--s3)"></span>New</span><span><span class="dot" style="background:var(--s1)"></span>Repeat</span></div><svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="New and repeat customers">`;
+  for(let i=0;i<=4;i++){const t=top/4*i;s+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)"/><text x="${pl-6}" y="${Y(t)+4}" text-anchor="end">${t}</text>`}
+  pts.forEach((p,i)=>{const x=pl+bw*i+(bw-w)/2;
+    if(p.b)s+=`<path d="${roundBottom(x,Y(p.b),w,Y(0)-Y(p.b),0)}" fill="var(--s1)"/>`;
+    if(p.a)s+=`<path d="${roundTop(x,Y(p.a+p.b),w,Y(p.b)-Y(p.a+p.b),3)}" fill="var(--s3)"/>`;
+    s+=`<text x="${pl+bw*i+bw/2}" y="${H-8}" text-anchor="middle">${esc(p.label)}</text>`;
+    if(p.a+p.b)s+=`<text class="vlab" x="${pl+bw*i+bw/2}" y="${Y(p.a+p.b)-6}" text-anchor="middle">${p.a+p.b}</text>`;
+    s+=`<rect data-i="${i}" x="${pl+bw*i}" y="${pt}" width="${bw}" height="${ih}" fill="transparent"/>`});
+  host.innerHTML=s+"</svg>";
+  host.querySelectorAll("rect[data-i]").forEach(r=>{const p=pts[+r.dataset.i];
+    r.addEventListener("mousemove",()=>showTip(host,pl+bw*+r.dataset.i+bw/2,Y(p.a+p.b)+28,`<b>${esc(p.label)}</b><br>New ${p.a} · Repeat ${p.b}`));r.addEventListener("mouseleave",hideTip)});
+}
+function openCustomer(key){
+  const by=ui.cby,all=ORDERS.filter(o=>custKey(o,by)===key&&repMatch(o,ui.crep));
+  const cnt=all.filter(counted);if(!all.length)return;
+  const g=custGroups(all,by)[0],a=agg(cnt),ds=cnt.map(o=>o.orderDate).filter(Boolean).sort();
+  const sub=[by==="contact"?g.company:"",g.email,g.phone].filter(Boolean).map(esc).join(" · ");
+  const contacts=by==="company"?custGroups(cnt,"contact").sort((x,y)=>y.a.sales-x.a.sales):[];
+  const orders=groupOrders(all).sort((x,y)=>(y[1][0].orderDate||"").localeCompare(x[1][0].orderDate||""));
+  const stat=(k,v)=>`<div><div class="k">${k}</div><div class="x">${v}</div></div>`;
+  $("#drawer-root").innerHTML=`<div class="overlay" id="ov"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="cu-t">
+    <div class="drawer-h"><h2 id="cu-t">${esc(g.label)}</h2><button class="btn ghost" id="cu-x" aria-label="Close">✕</button></div>
+    <div class="drawer-b">${sub?`<p class="note" style="margin:0 0 10px">${sub}</p>`:""}
+      <div class="pnl" style="margin-top:0">${stat("Sales",money(a.sales))}${stat("Orders",fint.format(a.orders))}${stat("Gross profit",`${money(a.gross)} <span class="note">${pct(a.gm)}</span>`)}
+        ${stat("Net profit",`${money(a.net)} <span class="note">${pct(a.nm)}</span>`)}${stat("Avg order",money(a.aov))}${stat("First order",esc(ds[0]||"—"))}${stat("Last order",esc(ds[ds.length-1]||"—"))}
+        ${stat("Days to deliver",a.dayN?Math.round(a.days/a.dayN)+" avg":"—")}</div>
+      <div class="card" style="margin-top:12px"><h2>${ui.cyear==="all"?"Sales by year":"Sales by month, "+ui.cyear}</h2><div class="chart" id="cu-chart"></div></div>
+      ${by==="company"?`<div class="card" style="margin-top:12px"><h2>Contacts (${contacts.length})</h2><div class="tbl-wrap"><table><thead><tr><th>Contact</th><th>Email</th><th>Phone</th><th class="n">Orders</th><th class="n">Sales</th><th class="n">Net profit</th><th>Last order</th></tr></thead><tbody>
+        ${contacts.map(c=>`<tr><td>${esc(c.name||"(No name)")}</td><td>${esc(c.email||"—")}</td><td>${esc(c.phone||"—")}</td><td class="n">${c.a.orders}</td><td class="n">${money(c.a.sales)}</td><td class="n${c.a.net<0?" neg":""}">${money(c.a.net)}</td><td>${esc(c.last||"—")}</td></tr>`).join("")||'<tr><td colspan="7" class="empty">No counted orders.</td></tr>'}</tbody></table></div></div>`:""}
+      <div class="card" style="margin-top:12px"><h2>Orders (${orders.length})</h2><div class="sub">All statuses. Click an order to open it in the Orders tab.</div><div class="tbl-wrap"><table><thead><tr><th>Order #</th><th>Date</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>
+        ${orders.map(([k,ls])=>{const o=ls[0],x=agg(ls);return `<tr class="click" data-ord="${esc(o.orderNumber||"")}"><td><b>${esc(o.orderNumber||"(no #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(ls.map(l=>l.productName||"Untitled").join(", "))}</td><td>${esc(o.salesRep||"—")}</td><td><span class="pill ${statusCls(o.status||"Pending")}">${esc(o.status||"Pending")}</span></td><td class="n">${money2(x.sales)}</td><td class="n${x.gross<0?" neg":""}">${money2(x.gross)}</td><td class="n${x.net<0?" neg":""}">${money2(x.net)}</td></tr>`}).join("")}</tbody></table></div></div>
+    </div></div></div>`;
+  const close=()=>{$("#drawer-root").innerHTML="";hideTip();document.removeEventListener("keydown",esck)};
+  const esck=e=>{if(e.key==="Escape")close()};document.addEventListener("keydown",esck);
+  $("#cu-x").onclick=close;$("#ov").addEventListener("mousedown",e=>{if(e.target.id==="ov")close()});
+  $("#drawer-root").querySelectorAll("tr[data-ord]").forEach(tr=>tr.onclick=()=>{close();ui.search=tr.dataset.ord;ui.oview="lines";$("#o-search").value=ui.search;setTab("orders")});
+  const pts=ui.cyear==="all"?[...new Set(cnt.map(o=>ym(o).y).filter(Boolean))].sort().map(y=>{const x=agg(cnt.filter(o=>ym(o).y===y));return {label:y,v:x.sales,g:x}})
+    :MONTHS.map((m,i)=>{const x=agg(cnt.filter(o=>{const t=ym(o);return t.y===ui.cyear&&t.m===i+1}));return {label:m,v:x.sales,g:x}});
+  barChart($("#cu-chart"),pts,METRIC.sales,{color:"var(--s1)",dim:false});
+}
+$("#c-year").onchange=e=>{ui.cyear=e.target.value;saveUi();renderCustomers()};
+$("#c-rep").onchange=e=>{ui.crep=e.target.value;saveUi();renderCustomers()};
+$("#c-by").onclick=e=>{const b=e.target.dataset?.b;if(b){ui.cby=b;saveUi();renderCustomers()}};
+$("#c-metric").onclick=e=>{const m=e.target.dataset?.m;if(m){ui.cmetric=m;saveUi();renderCustomers()}};
+$("#c-search").oninput=e=>{ui.csearch=e.target.value;renderCustomers()};
+$("#c-tbl").onclick=e=>{const h=e.target.closest("th[data-sort]");
+  if(h){const k=h.dataset.sort;if(ui.csort===k)ui.cdesc=!ui.cdesc;else{ui.csort=k;ui.cdesc=!["label","company"].includes(k)}saveUi();renderCustomers();return}
+  const tr=e.target.closest("tr[data-cust]");if(tr)openCustomer(tr.dataset.cust)};
 
 // ---------- orders list ----------
 function groupOrders(list){const m=new Map();for(const o of list){const k=orderKey(o);if(!m.has(k))m.set(k,[]);m.get(k).push(o)}return [...m.entries()]}
@@ -502,16 +692,16 @@ function renderOrders(){
   if(q)list=list.filter(o=>["orderNumber","companyName","clientName","productName","poNumber","supplierName","clientEmail","supplierItem","websiteItem"].some(k=>String(o[k]||"").toLowerCase().includes(q)));
   list.sort((a,b)=>(b.orderDate||"").localeCompare(a.orderDate||"")||String(b.orderNumber||"").localeCompare(String(a.orderNumber||"")));
   const repCell=o=>o.salesRep?`<span class="dot" style="background:${repColor(o.salesRep)}"></span>${esc(o.salesRep)}`:'<span class="note">Unassigned</span>';
-  const stCell=o=>{const st=o.status||"Pending";return `<span class="pill ${STATUS_CLS[st]||""}">${esc(st)}</span>`};
+  const stCell=o=>{const st=o.status||"Pending";return `<span class="pill ${statusCls(st)}">${esc(st)}</span>`};
   const onCell=v=>v===null?'<span class="note">—</span>':v?'<span class="pill good">On time</span>':'<span class="pill crit">Late</span>';
   const sampleTag=o=>o.sample?'<span class="tag">Example</span>':"";
   if(ui.oview==="orders"){
     const groups=groupOrders(list);
-    t.innerHTML=`<thead><tr><th>Order #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th></tr></thead><tbody>`+
+    t.innerHTML=`<thead><tr><th>Order #</th><th>Order date</th><th>Client company</th><th>Products</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Total price</th><th class="n">Gross profit</th><th class="n">Net profit</th><th>In-hands</th><th class="n">Days to deliver</th></tr></thead><tbody>`+
       (groups.length?groups.map(([k,ls])=>{const o=ls[0],g=agg(ls),items=ls.reduce((s,x)=>s+x._c.q,0);
         const on=g.onN?g.onT===g.onN:null;const prods=ls.map(x=>x.productName||"Untitled").join(", ");
-        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td></tr>`}).join("")
-      :`<tr><td colspan="11" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
+        return `<tr class="click" data-order="${esc(k)}"><td><b>${esc(o.orderNumber||"(no #)")}</b></td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(prods)}">${ls.length>1?`<b>${ls.length} products</b> · `:""}${esc(prods)}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(items)}</td><td class="n">${money2(g.sales)}</td><td class="n${g.gross<0?" neg":""}">${money2(g.gross)}</td><td class="n${g.net<0?" neg":""}">${money2(g.net)}</td><td>${onCell(on)}</td><td class="n">${g.dayN?g.days:"—"}</td></tr>`}).join("")
+      :`<tr><td colspan="12" class="empty">No orders match these filters.</td></tr>`)+`</tbody>`;
   }else{
     t.innerHTML=`<thead><tr><th>Order #</th><th>Order date</th><th>Client company</th><th>Product</th><th>Rep</th><th>Status</th><th class="n">Items</th><th class="n">Cost/unit</th><th class="n">Price/unit</th><th class="n">Total price</th><th class="n">Gross</th><th class="n">Net</th></tr></thead><tbody>`+
       (list.length?list.map(o=>{const c=o._c;return `<tr class="click" data-id="${esc(o._id)}"><td>${esc(o.orderNumber||"(no #)")}</td><td>${esc(o.orderDate||"—")}</td><td>${esc(o.companyName||"—")}${sampleTag(o)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(o.productName||"")}</td><td>${repCell(o)}</td><td>${stCell(o)}</td><td class="n">${fint.format(c.q)}</td><td class="n">${money2(c.costPerUnit)}</td><td class="n">${money2(num(o.customerUnitPrice))}</td><td class="n">${money2(c.totalPrice)}</td><td class="n${c.grossPnL<0?" neg":""}">${money2(c.grossPnL)}</td><td class="n${c.netPnL<0?" neg":""}">${money2(c.netPnL)}</td></tr>`}).join("")
@@ -533,7 +723,8 @@ async function assignOrderNumber(){
   });
 }
 function openForm(o,prefill){
-  editing=o?stripMeta(o):Object.assign({status:"Pending",priority:"Normal",inHandsAchieved:"Auto",orderDate:new Date().toISOString().slice(0,10),
+  const st0=statuses().includes("Pending")?"Pending":statuses().find(s=>s!==S.quoteStatus)||statuses()[0];
+  editing=o?stripMeta(o):Object.assign({status:st0,priority:opts("priority").includes("Normal")?"Normal":opts("priority")[0],inHandsAchieved:"Auto",orderDate:new Date().toISOString().slice(0,10),
     salesRep:!FULL?MY_REP:ui.rep!=="all"&&ui.rep!=="__none"?ui.rep:"",platformFeeType:"%"},prefill||{});
   delete editing.commissionType;if(!editing.platformFeeType)editing.platformFeeType="%";
   const id=o?o._id:null;
@@ -587,6 +778,10 @@ function fieldHtml(f){
   const lab=`<label for="${id}">${esc(f.l)}</label>`;
   if(f.t==="calc")return `<div class="field${cls}"><span class="lbl">${esc(f.l)}</span><div class="calc" id="calc-${f.k}">—</div>${hint}</div>`;
   if(f.t==="pair")return `<div class="field${cls}"><label for="fld-${f.k}Value">${esc(f.l)}</label><div class="pair"><select id="fld-${f.k}Type" name="fld-${f.k}Type" aria-label="${esc(f.l)} type"><option value="$">$</option><option value="%">%</option></select><input type="number" step="0.01" id="fld-${f.k}Value" name="fld-${f.k}Value"></div><div class="hintline" id="hint-${f.k}"></div></div>`;
+  if(f.t==="select"&&f.list){
+    // keep a value an order already has even if it was later removed from the list
+    const cur=editing&&has(editing[f.k])?String(editing[f.k]):"",o=[...(LD[f.list].blank?[""]:[]),...opts(f.list)];if(cur&&!o.includes(cur))o.push(cur);
+    return `<div class="field${cls}">${lab}<select id="${id}" name="${id}">${o.map(x=>`<option value="${esc(x)}">${esc(x||"—")}</option>`).join("")}</select>${hint}</div>`}
   if(f.t==="select")return `<div class="field${cls}">${lab}<select id="${id}" name="${id}">${f.o.map(x=>`<option value="${esc(x)}">${esc(x||"—")}</option>`).join("")}</select>${hint}</div>`;
   if(f.t==="rep"&&!FULL)return `<div class="field${cls}">${lab}<select id="${id}" name="${id}" disabled><option value="${esc(MY_REP)}">${esc(MY_REP)}</option></select></div>`;
   if(f.t==="rep")return `<div class="field${cls}">${lab}<select id="${id}" name="${id}"><option value="">Unassigned</option>${allReps().map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("")}</select></div>`;
@@ -636,7 +831,7 @@ async function importCSV(file){
     if(!has(o.customerUnitPrice)&&iTotal>=0&&num(r[iTotal])&&num(o.quantity))o.customerUnitPrice=Math.round(num(r[iTotal])/num(o.quantity)*10000)/10000;
     if(iRep>=0&&!o.salesRep&&r[iRep])o.salesRep=r[iRep].trim();
     if(o.inHandsAchieved&&!["Yes","No","Auto"].includes(o.inHandsAchieved))o.inHandsAchieved=/^(y|true|1)/i.test(o.inHandsAchieved)?"Yes":/^(n|false|0)/i.test(o.inHandsAchieved)?"No":"Auto";
-    if(o.status&&!STATUSES.includes(o.status))o.status=STATUSES.find(s=>s.toLowerCase()===o.status.toLowerCase())||"Pending";
+    if(o.status&&!statuses().includes(o.status))o.status=statuses().find(s=>s.toLowerCase()===o.status.toLowerCase())||"Pending";
     ["platformFeeType"].forEach(k=>{if(o[k]&&!["$","%"].includes(o[k]))o[k]=/%|pct|percent/i.test(o[k])?"%":"$"});
     if(Object.keys(o).length<2)continue;o.importedAt=new Date().toISOString();recs.push(o)}
   if(!recs.length){toast("No order rows found under the header.");return}
@@ -666,7 +861,8 @@ function renderSettings(){
   $("#rep-list").innerHTML=draftReps.map((r,i)=>`<div class="rep-row"><span class="dot" style="background:var(--s${(i%8)+1})"></span><input type="text" id="rep-${i}" data-i="${i}" value="${esc(r.name)}" aria-label="Rep ${i+1} name"><button class="btn ghost" data-del="${i}">Remove</button></div>`).join("");
   $("#st-suptax").value=S.supplierTaxPct;$("#st-custax").value=S.customerTaxPct;$("#st-fee").value=S.platformFeePct;$("#st-feeon").value=S.feeOn;
   $("#st-remit").checked=!!S.deductCustomerTax;
-  $("#st-statuses").innerHTML=STATUSES.map(s=>`<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="cs-${s.replace(/\s/g,"")}" data-s="${esc(s)}"${S.countStatuses.includes(s)?" checked":""}> <span class="pill ${STATUS_CLS[s]}">${esc(s)}</span></label>`).join("");
+  $("#st-statuses").innerHTML=statuses().map((s,i)=>`<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="cs-${i}" data-s="${esc(s)}"${S.countStatuses.includes(s)?" checked":""}> <span class="pill ${statusCls(s)}">${esc(s)}</span></label>`).join("");
+  renderLists();
   $("#formula").innerHTML=`<p style="margin:0 0 6px"><b>Total cost</b> = (Item cost + Running charge) × Number of items + Setup + Shipping + Other costs + Tax to supplier + Refund <span class="note">(refund only on Cancelled orders)</span></p>
     <p style="margin:0 0 6px"><b>Total price</b> = Price per unit × Number of items + Tax customer pays <span class="note">(this is Total sales on the dashboard)</span></p>
     <p style="margin:0 0 6px"><b>Gross profit</b> = Total price − Total cost <span class="note">(taxes included; rep commission and payment platform fee not included)</span></p>
@@ -681,9 +877,46 @@ $("#btn-save-settings").onclick=async()=>{
   const next={reps:[...new Set(draftReps.map(r=>r.name.trim()).filter(Boolean))],supplierTaxPct:num($("#st-suptax").value),customerTaxPct:num($("#st-custax").value),
     platformFeePct:num($("#st-fee").value),feeOn:$("#st-feeon").value,
     deductCustomerTax:$("#st-remit").checked,countStatuses:[...document.querySelectorAll("#st-statuses input:checked")].map(x=>x.dataset.s)};
-  try{await db.doc("settings/config").set(next);
+  try{await db.doc("settings/config").set(next,{merge:true});
     let n=0;for(const r of draftReps.filter(r=>r.orig&&r.name.trim()&&r.orig!==r.name.trim())){for(const o of ORDERS.filter(o=>o.salesRep===r.orig)){await db.collection("orders").doc(o._id).update({salesRep:r.name.trim()});n++}}
     draftReps=null;toast(n?`Settings saved · ${n} lines reassigned`:"Settings saved")}catch(e){toast(errMsg(e))}
+};
+
+// ---------- dropdown lists ----------
+let dlKey="priority",dlDraft=null;
+function renderLists(){
+  fillSelect($("#dl-pick"),LIST_DEFS.map(d=>[d.k,d.l]),dlKey);
+  if(!dlDraft)dlDraft=opts(dlKey).map(v=>({orig:v,name:v,card:(S.cardPlatforms||[]).includes(v)}));
+  const fixedTag=o=>o===S.quoteStatus?"Used for quotes":o===S.cancelledStatus?"Used for cancellations":"";
+  $("#dl-items").innerHTML=dlDraft.map((r,i)=>{const fx=dlKey==="status"&&r.orig?fixedTag(r.orig):"";
+    return `<div class="rep-row"><input type="text" data-i="${i}" value="${esc(r.name)}" aria-label="Choice ${i+1}">
+      ${dlKey==="paymentPlatform"?`<label class="note" style="display:flex;gap:5px;align-items:center;white-space:nowrap"><input type="checkbox" data-card="${i}"${r.card?" checked":""}> Card fee</label>`:""}
+      <button class="btn ghost" data-up="${i}" aria-label="Move up"${i?"":" disabled"}>↑</button><button class="btn ghost" data-down="${i}" aria-label="Move down"${i<dlDraft.length-1?"":" disabled"}>↓</button>
+      ${fx?`<span class="note" style="min-width:86px">${fx}</span>`:`<button class="btn ghost" data-del="${i}">Remove</button>`}</div>`}).join("")||'<p class="note">No choices. Add one below.</p>';
+}
+$("#dl-pick").onchange=e=>{dlKey=e.target.value;dlDraft=null;renderLists()};
+$("#dl-items").addEventListener("input",e=>{const i=e.target.dataset.i;if(i!==undefined)dlDraft[+i].name=e.target.value});
+$("#dl-items").addEventListener("change",e=>{const i=e.target.dataset.card;if(i!==undefined)dlDraft[+i].card=e.target.checked});
+$("#dl-items").addEventListener("click",e=>{const d=e.target.dataset;
+  const sw=(a,b)=>{[dlDraft[a],dlDraft[b]]=[dlDraft[b],dlDraft[a]];renderLists()};
+  if(d.del!==undefined){dlDraft.splice(+d.del,1);renderLists()}else if(d.up!==undefined)sw(+d.up,+d.up-1);else if(d.down!==undefined)sw(+d.down,+d.down+1)});
+$("#dl-add").onclick=()=>{dlDraft.push({orig:null,name:"",card:false});renderLists();const ins=$("#dl-items").querySelectorAll("input[type=text]");ins[ins.length-1]?.focus()};
+$("#dl-save").onclick=async()=>{
+  if(!db){toast("Storage isn't available in this view.");return}
+  const items=dlDraft.map(r=>({...r,name:r.name.trim()})).filter(r=>r.name);
+  const names=items.map(r=>r.name.toLowerCase());if(new Set(names).size!==names.length){toast("Two choices have the same name.");return}
+  if(!items.length){toast("Keep at least one choice.");return}
+  const renames=items.filter(r=>r.orig&&r.orig!==r.name).map(r=>[r.orig,r.name]);
+  const ren=v=>{const x=renames.find(([a])=>a===v);return x?x[1]:v};
+  const next={lists:Object.assign({},S.lists,{[dlKey]:items.map(r=>r.name)})};
+  if(dlKey==="status"){next.quoteStatus=ren(S.quoteStatus);next.cancelledStatus=ren(S.cancelledStatus);
+    next.countStatuses=S.countStatuses.map(ren).filter(s=>next.lists.status.includes(s))}
+  if(dlKey==="paymentPlatform")next.cardPlatforms=items.filter(r=>r.card).map(r=>r.name);
+  const btn=$("#dl-save");btn.disabled=true;
+  try{await db.doc("settings/config").set(next,{merge:true});
+    let n=0;for(const [a,b] of renames)for(const o of ORDERS.filter(o=>o[dlKey]===a)){await db.collection("orders").doc(o._id).update({[dlKey]:b});n++}
+    dlDraft=null;renderLists();toast(n?`List saved · ${n} order lines updated`:"List saved")}
+  catch(e){toast(errMsg(e))}finally{btn.disabled=false}
 };
 
 // ---------- banner ----------
@@ -697,7 +930,7 @@ function renderBanner(){
 }
 
 // ---------- wiring ----------
-function setTab(t){ui.tab=t;saveUi();["dash","orders","settings"].forEach(x=>{$("#view-"+x).hidden=x!==t;$("#tab-"+x).setAttribute("aria-selected",x===t)});if(t==="settings"){draftReps=null;renderSettings()}renderAll()}
+function setTab(t){ui.tab=t;saveUi();["dash","customers","orders","settings"].forEach(x=>{$("#view-"+x).hidden=x!==t;$("#tab-"+x).setAttribute("aria-selected",x===t)});if(t==="settings"){draftReps=null;renderSettings()}renderAll()}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 $("#f-year").onchange=e=>{ui.year=e.target.value;saveUi();renderAll()};
 $("#f-month").onchange=e=>{ui.month=e.target.value==="all"?"all":+e.target.value;saveUi();renderAll()};
@@ -718,11 +951,11 @@ $("#btn-new").onclick=()=>openForm(null);
 $("#btn-import").onclick=()=>{if(!db){toast("Storage isn't available in this view.");return}$("#file-import").click()};
 $("#file-import").onchange=e=>{const f=e.target.files[0];if(f)importCSV(f);e.target.value=""};
 $("#btn-export").onclick=exportCSV;
-let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(ui.tab==="dash")renderDash()},120)});
-function renderAll(){ORDERS.forEach(o=>o._c=calc(o));renderFilters();renderBanner();if(ui.tab==="dash")renderDash();if(ui.tab==="orders")renderOrders()}
+let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(ui.tab==="dash")renderDash();if(ui.tab==="customers")renderCustomers()},120)});
+function renderAll(){ORDERS.forEach(o=>o._c=calc(o));renderFilters();renderBanner();if(ui.tab==="dash")renderDash();if(ui.tab==="customers")renderCustomers();if(ui.tab==="orders")renderOrders()}
 
 // ---------- boot ----------
-setTab(["dash","orders","settings"].includes(ui.tab)?ui.tab:"dash");
+setTab(["dash","customers","orders","settings"].includes(ui.tab)?ui.tab:"dash");
 (async()=>{
   db=window.claude?await window.claude.use("db").catch(()=>null):null;
   if(!db){dbState="off";loaded=true;renderAll();return}
@@ -730,7 +963,7 @@ setTab(["dash","orders","settings"].includes(ui.tab)?ui.tab:"dash");
   if(window.APP&&APP.member){FULL=APP.level("sales")==="full";MY_REP=APP.member.name||APP.member.email}
   if(!FULL){$("#tab-settings").hidden=true;$("#btn-import").hidden=true;if(ui.tab==="settings")setTab("dash");
     $("#view-orders .note").textContent="You see the orders where you are the sales rep. Lines that share an Order # count as one order."}
-  db.doc("settings/config").onSnapshot(s=>{S=Object.assign(structuredClone(DEFAULT_SETTINGS),s.exists?s.data():{});S.reps=[...(S.reps||[])];S.countStatuses=[...(S.countStatuses||[])];if(ui.tab==="settings"&&!draftReps)renderSettings();renderAll()},()=>{});
+  db.doc("settings/config").onSnapshot(s=>{S=Object.assign(structuredClone(DEFAULT_SETTINGS),s.exists?s.data():{});S.reps=[...(S.reps||[])];S.countStatuses=[...(S.countStatuses||[])];S.lists=Object.assign({},S.lists);S.cardPlatforms=[...(S.cardPlatforms||[])];if(ui.tab==="settings"&&!draftReps)renderSettings();renderAll()},()=>{});
   (FULL?db.collection("orders"):db.collection("orders").where("salesRep","==",MY_REP)).onSnapshot(snap=>{ORDERS=snap.docs.map(d=>({...d.data(),_id:d.id}));loaded=true;renderAll()},()=>{dbState="off";loaded=true;renderAll()});
 })();
 })();
