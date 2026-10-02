@@ -8,7 +8,7 @@
 const OWNER="ihsan@aurorapromotions.ca";
 const TOOLS=[
   {k:"sales",l:"Sales Navigator",href:"sales/",desc:"Orders, sales and profit by month, rep and customer.",ready:true},
-  {k:"leads",l:"Leads",href:"leads/",desc:"Leads from GoHighLevel, reviewed emails and texts, follow-up reminders.",ready:false},
+  {k:"clients",l:"Clients & Seasons",href:"clients/",desc:"Your clients, seasonal outreach (golf, holidays…) with catalog links, and follow-up reminders.",ready:true},
   {k:"acceptance",l:"Order Acceptance",href:"acceptance/",desc:"Order summary, Terms and Conditions, client acceptance and invoices.",ready:false},
   {k:"projects",l:"Projects",href:"projects/",desc:"One project per client order: tasks, assignments, due dates and progress.",ready:true},
   {k:"handbook",l:"Handbook",href:"handbook/",desc:"How the dashboard works, how to change it, move it to your own website, or rebuild it.",ready:true,readOnly:true},
@@ -172,8 +172,8 @@ async function startDemo(resolve){
   if(!db.store.members||!Object.keys(db.store.members).length){
     db.store.members={
       [OWNER]:{name:"Ihsan",email:OWNER,role:"admin",active:true,loginType:"google",access:{}},
-      "lead@example.com":{name:"Sam (sales lead)",email:"lead@example.com",role:"member",active:true,loginType:"password",uid:"demo-lead",access:{sales:"full",projects:"full"}},
-      "rep@example.com":{name:"Rep 1",email:"rep@example.com",role:"member",active:true,loginType:"password",uid:"demo-rep",access:{sales:"limited",projects:"limited"}},
+      "lead@example.com":{name:"Sam (sales lead)",email:"lead@example.com",role:"member",active:true,loginType:"password",uid:"demo-lead",access:{sales:"full",projects:"full",clients:"full"}},
+      "rep@example.com":{name:"Rep 1",email:"rep@example.com",role:"member",active:true,loginType:"password",uid:"demo-rep",access:{sales:"limited",projects:"limited",clients:"limited"}},
     };db.persist();
   }
   if(qs.has("seed")){

@@ -82,5 +82,31 @@ service cloud.firestore {
       allow read: if level('projects') != 'none';
       allow write: if full('projects');
     }
+
+    // ---------- Clients & Seasons ----------
+    // clients/{email or name-company key} and outreach/{seasonId__clientId} carry `owner` = the sales rep's name.
+    // Limited: only their own clients and outreach, add and edit, no delete. Seasons and settings: full only.
+    match /clients/{id} {
+      allow read: if full('clients') || (limited('clients') && resource.data.owner == myName());
+      allow create: if full('clients') || (limited('clients') && request.resource.data.owner == myName());
+      allow update: if full('clients')
+        || (limited('clients') && resource.data.owner == myName() && request.resource.data.owner == myName());
+      allow delete: if full('clients');
+    }
+    match /outreach/{id} {
+      allow read: if full('clients') || (limited('clients') && resource.data.owner == myName());
+      allow create: if full('clients') || (limited('clients') && request.resource.data.owner == myName());
+      allow update: if full('clients')
+        || (limited('clients') && resource.data.owner == myName() && request.resource.data.owner == myName());
+      allow delete: if full('clients');
+    }
+    match /seasons/{id} {
+      allow read: if level('clients') != 'none';
+      allow write: if full('clients');
+    }
+    match /settings/clients {
+      allow read: if level('clients') != 'none';
+      allow write: if full('clients');
+    }
   }
 }
