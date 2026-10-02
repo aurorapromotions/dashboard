@@ -1,7 +1,8 @@
-# Sales Navigator
+# Aurora Promotions Dashboard
 
-Sales dashboard and order log for a promotional products business: sales by year, month and rep, orders counted by Order #, gross and net profit.
+Internal dashboard for Aurora Promotions: Sales Navigator (orders, profit, customers), with Leads, Order Acceptance and Projects to come.
 
-- **App:** https://aurorapromotions.github.io/sales-navigator/
-- Orders are stored in Google Firebase (Firestore). Only Google accounts listed in the Firestore security rules can sign in and see data.
-- The page itself (`docs/`) is plain HTML/JS with no build step. See `CLAUDE.md` for the data model, formulas and how to rebuild.
+- **App:** https://aurorapromotions.github.io/dashboard/
+- Sign in with Google or email and password. Admins manage people and their access on the **Team & Access** page.
+- Data is stored in Google Firebase (Firestore); access is enforced by `firestore.rules`.
+- The site (`docs/`) is plain HTML/JS with no build step. See `CLAUDE.md` for how it works and how to test it locally.
