@@ -1,4 +1,4 @@
-# Generates data/example-orders.json: 34 example orders / 55 product lines, all flagged sample=true.
+# Generates docs/assets/example-orders.json (demo data, loaded with ?seed=1 in demo mode): 34 example orders / 55 product lines, all flagged sample=true.
 # Deterministic (fixed random seed) so the file is stable between runs.
 $root = Split-Path $PSScriptRoot -Parent
 $rnd = New-Object System.Random 42
@@ -87,5 +87,5 @@ for ($i = 0; $i -lt 34; $i++) {
   }
 }
 $json = $lines | ConvertTo-Json -Depth 4
-[IO.File]::WriteAllText((Join-Path $root 'data\example-orders.json'), $json, (New-Object Text.UTF8Encoding $false))
+[IO.File]::WriteAllText((Join-Path $root 'docs\assets\example-orders.json'), $json, (New-Object Text.UTF8Encoding $false))
 "Wrote $($lines.Count) lines across $(($lines | Select-Object -ExpandProperty orderNumber -Unique).Count) orders"

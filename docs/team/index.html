@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Team &amp; Access · Aurora Promotions Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/core.css">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script>window.PAGE={tool:"team",base:"../"}</script>
+<script src="../assets/core.js"></script>
+<style>
+.head{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px}
+.head>div{flex:1 1 300px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:16px}
+.legend div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink-2)}
+.legend b{display:block;color:var(--ink);font-size:14px;margin-bottom:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+tbody tr:last-child td{border-bottom:0}
+tr.off td{opacity:.55}
+td small{display:block;color:var(--muted);font-size:12px}
+.overlay{position:fixed;inset:0;background:rgba(10,12,14,.45);z-index:40;display:flex;justify-content:flex-end}
+.drawer{background:var(--bg);width:min(520px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.2)}
+.drawer-h{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--surface)}
+.drawer-h h2{font-family:var(--f-display);font-size:18px;margin:0;margin-right:auto}
+.drawer-b{overflow-y:auto;padding:16px 20px 24px;flex:1;display:flex;flex-direction:column;gap:14px}
+.drawer-f{display:flex;gap:10px;padding:12px 20px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+fieldset{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:0;padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px}
+legend{font-weight:700;font-size:13px;padding:0 6px}
+.radio{display:flex;gap:8px;align-items:flex-start}
+.radio input{margin-top:3px}
+.acc{display:grid;grid-template-columns:1fr 150px;gap:8px 12px;align-items:center}
+.acc .soon{color:var(--muted);font-size:12px;font-weight:400}
+.hint{font-size:12px;color:var(--muted)}
+.err{color:var(--crit);font-size:13px;min-height:1.2em;margin:0}
+</style>
+</head><body>
+<main class="ap-wrap" id="page" hidden>
+  <div class="head">
+    <div><h1 class="ap-h1">Team &amp; Access</h1><p class="ap-muted" style="margin:0">Add people, choose how they sign in, and decide which tools they can use.</p></div>
+    <button class="ap-btn ap-primary" id="btn-add">+ Add person</button>
+  </div>
+  <div class="legend">
+    <div><b>Admin</b>Full access to every tool, and can manage the team.</div>
+    <div><b>Team lead</b>A member with <i>Full</i> access to one or more tools, for example a sales lead.</div>
+    <div><b>Member</b><i>Limited</i> access: sees only their own records, can add and edit, not delete.</div>
+  </div>
+  <div class="card"><div class="tbl"><table id="tbl"></table></div></div>
+  <p class="ap-note" style="margin-top:10px">Turning someone off stops them signing in right away. Their records stay. A person's name is also their sales rep name in Sales Navigator.</p>
+</main>
+<div id="drawer-root"></div>
+<script>
+APP.ready.then(()=>{
+"use strict";
+const esc=APP.esc,db=APP.fs,$=s=>document.querySelector(s);
+const TOOLS=APP.TOOLS,me=APP.member.email;
+let PEOPLE=[];
+
+function levelPill(m,k){
+  if(m.role==="admin")return '<span class="ap-pill full">Full</span>';
+  const lv=(m.access||{})[k]||"none";
+  return lv==="none"?'<span class="ap-note">—</span>':`<span class="ap-pill ${lv}">${APP.LEVELS[lv]}</span>`;
+}
+function render(){
+  const rows=[...PEOPLE].sort((a,b)=>(b.email===APP.OWNER)-(a.email===APP.OWNER)||(b.active===true)-(a.active===true)||String(a.name).localeCompare(String(b.name)));
+  $("#tbl").innerHTML=`<thead><tr><th>Name</th><th>Role</th><th>Login</th>${TOOLS.map(t=>`<th>${esc(t.l)}</th>`).join("")}<th>Status</th><th></th></tr></thead><tbody>`+
+    rows.map(m=>`<tr class="${m.active===true?"":"off"}"><td><b>${esc(m.name||"")}</b><small>${esc(m.email)}</small></td>
+      <td><span class="ap-pill ${m.role==="admin"?"admin":""}">${m.email===APP.OWNER?"Main admin":APP.roleLabel(m)}</span></td>
+      <td>${m.loginType==="password"?"Email &amp; password":"Google"}</td>
+      ${TOOLS.map(t=>`<td>${levelPill(m,t.k)}</td>`).join("")}
+      <td>${m.active===true?'<span class="ap-pill full">Active</span>':'<span class="ap-pill off">Off</span>'}</td>
+      <td><button class="ap-btn ap-small" data-edit="${esc(m.email)}">Edit</button></td></tr>`).join("")+`</tbody>`;
+}
+$("#tbl").onclick=e=>{const b=e.target.closest("[data-edit]");if(b)openForm(PEOPLE.find(p=>p.email===b.dataset.edit))};
+$("#btn-add").onclick=()=>openForm(null);
+
+function openForm(p){
+  const isNew=!p,owner=p&&p.email===APP.OWNER,self=p&&p.email===me;
+  const m=p?JSON.parse(JSON.stringify(p)):{name:"",email:"",role:"member",active:true,loginType:"",access:{}};
+  $("#drawer-root").innerHTML=`<div class="overlay" id="ov"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="dt">
+    <div class="drawer-h"><h2 id="dt">${isNew?"Add person":"Edit "+esc(m.name||m.email)}</h2><button class="ap-btn ap-small" id="dx" aria-label="Close">✕</button></div>
+    <form class="drawer-b" id="pf" novalidate>
+      <label class="ap-field"><span>Name</span><input id="f-name" value="${esc(m.name)}" required autocomplete="off"><em class="hint">Shown across the dashboard, and used as their sales rep name.</em></label>
+      <label class="ap-field"><span>Email</span><input id="f-email" type="email" value="${esc(m.email)}" ${isNew?"":"disabled"} required autocomplete="off"></label>
+      ${isNew?`<fieldset><legend>How they sign in</legend>
+        <label class="radio"><input type="radio" name="login" value="google"><span><b>Google account</b><br><span class="hint">For @aurorapromotions.ca or any Gmail/Google address. They click "Sign in with Google".</span></span></label>
+        <label class="radio"><input type="radio" name="login" value="password"><span><b>Email &amp; password</b><br><span class="hint">For any other email. They get an email with a link to set their own password.</span></span></label>
+      </fieldset>`:`<p class="hint" style="margin:0">Signs in with: <b>${m.loginType==="password"?"email &amp; password":"Google"}</b></p>`}
+      <fieldset><legend>Role</legend>
+        <label class="radio"><input type="radio" name="role" value="admin" ${m.role==="admin"?"checked":""} ${owner||self?"disabled":""}><span><b>Admin</b><br><span class="hint">Every tool, plus this Team page.</span></span></label>
+        <label class="radio"><input type="radio" name="role" value="member" ${m.role!=="admin"?"checked":""} ${owner||self?"disabled":""}><span><b>Team member</b><br><span class="hint">Only the tools you choose below.</span></span></label>
+        ${owner?'<p class="hint" style="margin:0">The main admin always keeps full access.</p>':self?'<p class="hint" style="margin:0">You can\'t change your own role.</p>':""}
+      </fieldset>
+      <fieldset id="acc-set"><legend>Tool access</legend>
+        <div class="acc">${TOOLS.map(t=>`<label for="a-${t.k}">${esc(t.l)}${t.ready?"":' <span class="soon">· coming soon</span>'}</label>
+          <select class="ap-sel" id="a-${t.k}">${Object.entries(APP.LEVELS).map(([v,l])=>`<option value="${v}"${((m.access||{})[t.k]||"none")===v?" selected":""}>${l}</option>`).join("")}</select>`).join("")}</div>
+        <p class="hint" style="margin:0"><b>Limited</b>: their own records only, add and edit, no delete. <b>Full</b>: everything in that tool, including delete and settings (a team lead).</p>
+      </fieldset>
+      <label class="radio"><input type="checkbox" id="f-active" ${m.active===true?"checked":""} ${owner||self?"disabled":""}><span><b>Can sign in</b><br><span class="hint">Untick to turn off their access without losing their records.</span></span></label>
+      <p class="err" id="ferr" role="alert"></p>
+    </form>
+    <div class="drawer-f"><button class="ap-btn ap-primary" id="fsave">${isNew?"Add person":"Save changes"}</button><button class="ap-btn" id="fcancel">Cancel</button>
+      ${!isNew&&m.loginType==="password"?'<span style="flex:1"></span><button class="ap-btn" id="fpw">Send password email</button>':""}</div>
+  </div></div>`;
+  const close=()=>{$("#drawer-root").innerHTML="";document.removeEventListener("keydown",esck)};
+  const esck=e=>{if(e.key==="Escape")close()};document.addEventListener("keydown",esck);
+  $("#dx").onclick=close;$("#fcancel").onclick=close;$("#ov").addEventListener("mousedown",e=>{if(e.target.id==="ov")close()});
+  const syncAdmin=()=>{const adm=document.querySelector('input[name=role][value=admin]').checked;
+    document.querySelectorAll("#acc-set select").forEach(s=>{s.disabled=adm});$("#acc-set").style.opacity=adm?.55:1};
+  document.querySelectorAll("input[name=role]").forEach(r=>r.onchange=syncAdmin);syncAdmin();
+  if(isNew){const em=$("#f-email");const pick=()=>{if(!document.querySelector("input[name=login]:checked")||em.dataset.auto){
+      document.querySelector(`input[name=login][value=${/@(aurorapromotions\.ca|gmail\.com)$/i.test(em.value.trim())?"google":"password"}]`).checked=true;em.dataset.auto="1"}};
+    em.addEventListener("input",pick);document.querySelectorAll("input[name=login]").forEach(r=>r.onchange=()=>{delete em.dataset.auto});}
+  if($("#fpw"))$("#fpw").onclick=async()=>{try{await APP.sendPasswordEmail(m.email);APP.toast(`Password email sent to ${m.email}`)}catch(e){$("#ferr").textContent="Couldn't send the email. Try again."}};
+  setTimeout(()=>$("#f-name").focus(),50);
+
+  $("#fsave").onclick=async()=>{
+    const err=t=>{$("#ferr").textContent=t};
+    const name=$("#f-name").value.trim(),email=(isNew?$("#f-email").value:m.email).trim().toLowerCase();
+    if(!name){err("Enter their name.");return}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){err("Enter a valid email address.");return}
+    if(PEOPLE.some(x=>x.email!==m.email&&String(x.name).trim().toLowerCase()===name.toLowerCase())){err("Someone else already has this name. Names need to be different so sales reps don't mix up.");return}
+    const role=owner?"admin":document.querySelector("input[name=role]:checked").value;
+    const access={};TOOLS.forEach(t=>{const v=$("#a-"+t.k).value;if(v!=="none")access[t.k]=v});
+    const active=owner||self?true:$("#f-active").checked;
+    const next=Object.assign({},m,{name,email,role,access,active,updatedAt:new Date().toISOString(),updatedBy:me});
+    const btn=$("#fsave");btn.disabled=true;
+    try{
+      if(isNew){
+        if(PEOPLE.some(x=>x.email===email)){err("This email is already on the team.");btn.disabled=false;return}
+        const login=(document.querySelector("input[name=login]:checked")||{}).value;
+        if(!login){err("Choose how they sign in.");btn.disabled=false;return}
+        next.loginType=login;next.addedAt=next.updatedAt;next.addedBy=me;
+        if(login==="password"){
+          try{next.uid=await APP.createPasswordLogin(email)}
+          catch(e){btn.disabled=false;
+            err(e&&e.code==="auth/email-already-in-use"?"This email already has a password login from before. Choose Google sign-in if it's a Google account, or contact support to reset it.":
+                e&&e.code==="auth/operation-not-allowed"?"Email & password sign-in isn't switched on in Firebase yet.":"Couldn't create the login. Check the email and try again.");return}
+        }
+      }
+      await db.collection("members").doc(email).set(next);
+      await syncSalesRep(p,next);
+      APP.toast(isNew?(next.loginType==="password"?`Added. ${email} will get an email to set a password.`:`Added. ${name} can now sign in with Google.`):"Saved");
+      close();
+    }catch(e){btn.disabled=false;err(e&&e.code==="permission-denied"?"You don't have permission to do that.":"Couldn't save. Check your connection and try again.")}
+  };
+}
+// a person with Sales Navigator access is a sales rep under their name; renaming them renames their orders too
+async function syncSalesRep(before,after){
+  const ref=db.doc("settings/config");
+  const s=await ref.get();let reps=s.exists&&Array.isArray(s.data().reps)?[...s.data().reps]:[];
+  const oldName=before&&before.name,newName=after.name;let changed=false;
+  if(oldName&&oldName!==newName){
+    const i=reps.indexOf(oldName);if(i>=0){reps[i]=newName;changed=true}
+    const snap=await db.collection("orders").where("salesRep","==",oldName).get();
+    for(const d of snap.docs)await db.collection("orders").doc(d.id).update({salesRep:newName});
+  }
+  const sells=["limited","full"].includes((after.access||{}).sales);
+  if(sells&&!reps.includes(newName)){reps.push(newName);changed=true}
+  if(changed)await ref.set({reps},{merge:true});
+}
+
+db.collection("members").onSnapshot(snap=>{PEOPLE=snap.docs.map(d=>Object.assign({},d.data(),{email:d.id}));render()},
+  ()=>{$("#tbl").innerHTML='<tbody><tr><td>Couldn\'t load the team. Reload the page.</td></tr></tbody>'});
+$("#page").hidden=false;
+});
+</script>
+</body></html>

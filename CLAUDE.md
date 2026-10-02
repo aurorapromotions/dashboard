@@ -1,149 +1,80 @@
-# Sales Navigator: project handoff
+# Aurora Promotions Dashboard
 
-Context for Claude Code, carried over from a Claude (Cowork) chat on 2026-09-29. Private links (original sheet, claude.ai artifact) are in `CLAUDE.local.md`, which is not committed.
+Internal web dashboard ("mini ERP") for Aurora Promotions, a promotional products business. Private links (original Google Sheet, old claude.ai artifact) are in `CLAUDE.local.md`, which is not committed. The owner is not technical: explain in plain language, do the technical work for them.
 
-## What this is
+- Live: https://aurorapromotions.github.io/sales-navigator/ (GitHub Pages, `main` branch, `/docs` folder). Planned rename of the repo to `dashboard` → `/dashboard/` (needs the user's OK). Later the user may move hosting to their own server (aurorapromotions.ca, e.g. `dashboard.aurorapromotions.ca`); the site is static files, so it can be copied as-is.
+- Data and logins: Firebase project `sales-navigator-1b716` (Spark/free plan, Firestore in northamerica-northeast2). Google sign-in enabled; `aurorapromotions.github.io` is an authorized domain. Public web config is in `docs/firebase-config.js` (not secret).
+- No Node/Python on this machine; no build step. Plain HTML/JS/CSS, Firebase compat SDK 10.14.1 from gstatic.
 
-A sales dashboard and order log for a **promotional products** business (the company is referred to as "Aurora" in the original sheet). It replaces a manual Google Sheet.
+## Roadmap (agreed with the user, 2026-10-02)
 
-- Original manual Google Sheet (header row only, no data yet; the title rows above the header read "Monthly Sales / Month / TOTAL SALES / TOTAL PROFIT").
-- First live version: a private claude.ai Artifact. Its data lives in that artifact's built-in database, not in the Google Sheet.
-- Hosted version: https://aurorapromotions.github.io/sales-navigator/ (GitHub Pages from `docs/`, data in Firebase Firestore).
+1. **Foundation** (done in code; see status below): one sign-in, Team & Access page, Sales Navigator moved in.
+2. **Sales Navigator upgrades:** Customers report (per client company and per contact: sales, orders, gross/net profit, avg order, last order, charts); every dropdown editable in Settings (priorities, acquisition channels, categories, decoration methods, shipping companies, payment platforms, statuses: "Quote" and "Cancelled" can be renamed, not deleted, since totals/refunds depend on them); fix days order→delivery (currently averaged per product line; should be per order, order date → last line's delivery date).
+3. **Projects:** admins/leads create projects and tasks, assign people, due dates, statuses (To do/In progress/Review/Done), comments, board + list + My tasks.
+4. **Leads (manual first):** lead list, assign to reps, draft → rep reviews → send, follow-up reminder every 2 days with no reply until the rep turns follow-ups off.
+5. **Connector + GoHighLevel:** a free Cloudflare Worker receives GHL webhooks (FB/Google leads) and sends approved emails/SMS via the GHL API; scheduled follow-up checks. Secrets (GHL key) live in the Worker, never in the site.
+6. **Order Acceptance + invoices:** client gets a private link with order summary + Terms & Conditions (editable, versioned) + Stripe/Square invoice; "I accept" + typed name stored with time and T&C version; payment webhook marks the order paid.
+7. **Claude drafts** for lead emails/follow-ups (user's Anthropic account, pay per use).
 
-## Files in this folder
+Open questions still to ask: projects tied to client orders or internal? reminders in-app only or also email/SMS? GHL lead stages? Stripe vs Square, send via GHL or company email, PDF of acceptance? currency CAD? retire the claude.ai version?
+
+## Access model
+
+People are `members/{lowercase email}`: `{name, email, role: "admin"|"member", active, loginType: "google"|"password", uid?, access: {sales|leads|acceptance|projects: "limited"|"full"}}`.
+
+- **Main admin:** `ihsan@aurorapromotions.ca` (Google). Always admin; can't be demoted or switched off; their doc is auto-created on first sign-in.
+- **Admin:** every tool at full, plus the Team & Access page; can add other admins and members.
+- **Team lead:** a member with `full` on one or more tools (e.g. sales lead: sees/edits/deletes all orders, Sales settings).
+- **Member / rep:** `limited` = only their own records, add and edit, never delete, no tool settings. In Sales Navigator "own" means `salesRep == member.name`, so a person's name is their rep name (Team page renames their orders when the name changes, and adds sales people to `settings/config.reps`).
+- **Logins:** Google (for @aurorapromotions.ca or any Google account) or email & password (admin adds them; `APP.createPasswordLogin` makes the account through a second Firebase app instance so the admin stays signed in, stores its `uid` on the member, and sends a set-your-password email). Rules accept a password login only if its uid matches the member doc. Members are never deleted, only switched off (keeps uid and history).
+- **Enforcement:** `firestore.rules` (published in the Firebase console; keep in sync). The pages only hide what rules already forbid.
+
+## Files
 
 | Path | What it is |
 |---|---|
-| `src/artifact-page.html` | **Source of truth.** The exact source published to claude.ai (no doctype/head; the Artifact host wraps it). Uses `window.claude.use("db")` and `use("downloads")`. Pulled from the live artifact on 2026-09-29. |
-| `src/shim.js` | Local stand-in for `window.claude`: a `localStorage`-backed db (`collection/doc/set/update/delete/onSnapshot`) and a `downloads.save` that triggers a browser download. `?seed=1` loads the example data, `?reset=1` wipes local data. |
-| `src/index.html` | **Generated** by `tools/build.ps1` (page + shim + embedded example data). Don't edit by hand; edit `artifact-page.html` and rebuild. |
-| `data/example-orders.json` | 55 example product lines (34 orders), all flagged `sample: true`. Company names start with "Example:". Generated by `tools/make-examples.ps1`. |
-| `src/firebase-shim.js` | Online stand-in for `window.claude`: Google sign-in gate, then Firestore (compat SDK, same API as the Artifact db). |
-| `src/firebase-config.js` | Template for the Firebase web config. The real one lives in `docs/firebase-config.js` (not secret; access is enforced by rules). |
-| `docs/` | **GitHub Pages site** (generated `index.html` + `firebase-config.js` + `.nojekyll`). Pages serves from `main` branch `/docs`. |
-| `firestore.rules` | Security rules, published in the Firebase console: any verified `@aurorapromotions.ca` Google account can read/write. Firebase project `sales-navigator-1b716`; Google sign-in enabled; `aurorapromotions.github.io` is an authorized domain. |
-| `tools/serve.ps1` | Tiny static server (no Node/Python on this machine). Also wired in `.claude/launch.json` as `sales-navigator`. |
+| `docs/index.html` | Home: tool tiles for what the viewer can use; Team tile for admins. |
+| `docs/assets/core.js` | Shared by every page: Firebase init, sign-in screen (Google + email/password + reset), member lookup, access levels (`APP.level(tool)`), top bar, `window.claude` adapter. Tool list `TOOLS` lives here (set `ready:true` when a tool ships). Demo mode on localhost. |
+| `docs/assets/core.css` | Shared tokens (light/dark), top bar, sign-in card, tiles, buttons. |
+| `docs/team/index.html` | Team & Access (admins only): add/edit people, login type, role, per-tool access, on/off, send password email. |
+| `docs/sales/index.html` | Sales Navigator (originally the claude.ai artifact; still calls `window.claude.use("db"|"downloads")`, which core.js provides). Reads `APP.level("sales")`: limited users get a `where("salesRep","==",name)` query, a locked rep field, no delete/import/settings/sample removal. |
+| `docs/assets/example-orders.json` | 55 example lines / 34 orders (`sample: true`), for demo mode only. Made by `tools/make-examples.ps1`. |
+| `firestore.rules` | Security rules (see Access model). |
+| `tools/serve.ps1` | Local static server; `.claude/launch.json` runs it on port 8091. |
+| `archive/claude-artifact-sales-navigator.html` | The old claude.ai version, for reference only. |
 
-**Run locally (Windows PowerShell):**
-1. `powershell -ExecutionPolicy Bypass -File tools\build.ps1` after any change to `artifact-page.html` or `shim.js`.
-2. `powershell -ExecutionPolicy Bypass -File tools\serve.ps1`, then open http://localhost:8080/src/index.html (add `?seed=1` once).
+**Test locally:** run the `sales-navigator` launch config, open http://localhost:8091/docs/?demo=admin (or `demo=lead`, `demo=rep`; `demo=off` to leave). Demo mode uses browser storage and fake people (Ihsan admin, "Sam (sales lead)" full sales, "Rep 1" limited sales); add `?seed=1` on the Sales page to load example orders, `?reset=1` to wipe. Demo mode only exists on localhost and never touches Firebase. Rules can't be tested locally; review them carefully.
 
-**Publish changes:** republish `src/artifact-page.html` to the existing artifact URL below (keep capabilities `db` + `downloads`), so the live data stays put.
+**Publish:** commit and push to `main`; GitHub Pages rebuilds in about a minute. If rules changed, publish them in the Firebase console **before** pushing pages that depend on them.
 
-The app is a single file of vanilla JS with hand-drawn SVG charts and no build step. The only external resource is Google Fonts (Bricolage Grotesque, Figtree).
+## Sales Navigator details
 
-## What the user asked for
+- `orders/{id}`: one doc per **product line**; lines sharing an Order # are one order (`orderKey` = upper-trimmed Order #). Order-level fields (`order:true` in the `F` field list) are copied to sibling lines on save.
+- Order numbers: `counters/orders.next`, taken in a transaction on save (`assignOrderNumber`), never lower than the highest visible `ORD-####` + 1, so reps who can't see each other's orders never collide.
+- `settings/config`: `reps[]`, `supplierTaxPct`, `customerTaxPct`, `platformFeePct`, `feeOn` ("card"/"all"), `deductCustomerTax`, `countStatuses[]`.
+- Statuses: Quote, Pending, Ordered, In Production, Shipped, Delivered, Cancelled. Totals count all but Quote and Cancelled (configurable).
+- CSV import/export by column label or alias (`al`); import finds the header row under title rows.
 
-**Round 1:**
-- A dashboard showing sales by **year, month and sales rep**.
-- Show total sales in $ and the number of orders.
-- An option to see **gross profit and net profit**.
-- Add whatever columns are needed on top of the manual sheet.
-
-The user chose a **web dashboard app** over an upgraded spreadsheet. Reps are placeholders ("Rep 1/2/3"), editable in Settings.
-
-**Round 2 (current spec):**
-1. **Count orders by Order #.** One order can have several products or rows. Every row sharing an Order # is one order.
-2. **Required columns**, in the user's order:
-   - Priority, Order #
-   - Client Name, Client Designation, Client Company, Client Email, Client Phone
-   - Supplier Company, Supplier Rep, Supplier Email, Supplier Phone
-   - Product Name, Product ID from supplier, Product ID at our website, Number of items
-   - Item cost, Setup cost, Running charge, Refund if any, Shipping charge, Other costs, Total cost per unit
-   - Tax % to supplier (dynamic, per line), optional $ commission for the rep, payment platform fee in $ or %, Total cost
-   - Price per unit, Tax the customer pays, Total price
-   - **Gross profit** = Total price − Total cost, *including taxes*, with *sales rep commission not part of cost at this point*
-   - **Net profit** = the final amount the company keeps after all applicable expenses
-   - Plus "all other necessary columns"
-
-## Data model
-
-- Firestore-like document store (the Artifact `db` capability).
-- `orders/{id}`: one document per **product line**. Each line is a row of the sheet.
-- `settings/config`: holds the following keys:
-  - `reps[]`
-  - `supplierTaxPct`, `customerTaxPct`
-  - `platformFeePct`, `feeOn` (`"card"` or `"all"`)
-  - `deductCustomerTax` (bool)
-  - `countStatuses[]`
-
-Field definitions live in the `F` array in the script. Each entry has:
-- `k`: storage key
-- `l`: the column label, used for CSV import/export
-- `al`: aliases for the old sheet's headers
-- `order: true`: the field is shared by every line of the same Order #. Saving one line copies these to its sibling lines.
-
-Main keys:
-- **Order-level:** `priority`, `orderNumber`, `status`, `salesRep`, `orderDate`, `inHandsDate`, `poNumber`, `cac`, `clientName`, `clientTitle`, `companyName`, `clientEmail`, `clientPhone`, `paymentPlatform`, `invoicePaidDate`, `deliveryAddress`
-- **Line-level:** `supplierName`, `supplierContactName`, `supplierContactEmail`, `supplierContactPhone`, `productName`, `supplierItem`, `websiteItem`, `quantity`, `productCategory`, `decorationMethod`, `unitCost`, `setupCost`, `unitRunCharges`, `refundFee`, `shippingCost`, `otherCosts`, `supplierTaxPct`, `commissionValue` ($), `platformFeeType`/`platformFeeValue`, `customerUnitPrice`, `customerTaxPct`, `poPaidDate`, `shippingCompany`, `trackingNumber`, `shippedDate`, `deliveryDate`, `inHandsAchieved` (`Auto`/`Yes`/`No`), `notes`
-- **Flags:** `sample` (bool), `updatedAt`, `importedAt`
-
-Statuses: `Quote`, `Pending`, `Ordered`, `In Production`, `Shipped`, `Delivered`, `Cancelled`. Dashboard totals count all except Quote and Cancelled, and this is configurable.
-
-## Formulas (function `calc(o)`)
-
+Formulas (`calc(o)`):
 ```
-q               = Number of items
-base            = (unitCost + unitRunCharges) × q + setupCost + shippingCost + otherCosts
-costPerUnit     = base / q                                  // before tax & fees
-supplierTax     = base × supplierTaxPct%                    // blank → settings default
-subtotal        = customerUnitPrice × q
-customerTax     = subtotal × customerTaxPct%                // blank → settings default
-totalPrice      = subtotal + customerTax
-platformFee     = type "$" ? value : totalPrice × value%    // blank % → settings pct if platform is Stripe/PayPal/Square/Shopify Payments (or any, if feeOn="all")
-refund          = status == "Cancelled" ? refundFee : 0             // refunds only happen on cancelled orders
-totalCost       = base + supplierTax + refund                       // supplier tax IS a cost; NO commission, NO platform fee
-grossProfit     = totalPrice − totalCost
-commission      = commissionValue                                   // $ only, entered manually per line
-taxAdj          = deductCustomerTax ? customerTax : 0              // supplier tax is never recovered
-netProfit       = grossProfit − commission − platformFee − taxAdj
-margins         = profit / totalPrice
-orders          = count of distinct UPPER(TRIM(orderNumber)); a blank Order # counts as its own order
-inHands on-time = per order: every line delivered on or before the in-hands date (or a manual Yes/No)
+q            = Number of items
+base         = (unitCost + unitRunCharges) × q + setupCost + shippingCost + otherCosts
+costPerUnit  = base / q
+supplierTax  = base × supplierTaxPct%                  // not recoverable; part of total cost
+subtotal     = customerUnitPrice × q
+customerTax  = subtotal × customerTaxPct%
+totalPrice   = subtotal + customerTax                   // "Total sales" includes customer tax
+platformFee  = "$" ? value : totalPrice × value%        // blank % → settings pct on card platforms
+refund       = status == "Cancelled" ? refundFee : 0
+totalCost    = base + supplierTax + refund              // no commission, no platform fee
+grossProfit  = totalPrice − totalCost
+commission   = commissionValue ($, entered per line)
+taxAdj       = deductCustomerTax ? customerTax : 0
+netProfit    = grossProfit − commission − platformFee − taxAdj
 ```
 
-**Defaults** (current `settings/config`):
-- supplier tax 0%, customer tax 0%
-- platform fee 2.9% on card platforms
-- `deductCustomerTax=true`
+## Status (2026-10-02)
 
-## Features built
-
-- **Dashboard:**
-  - Year, month and rep filters, remembered per browser.
-  - Metric toggle: Sales $, Orders, Gross, Net.
-  - Five stat tiles: total sales (incl. customer tax), orders (with the line count), gross profit, net profit, and in-hands on-time %.
-  - Bar chart by month when a year is picked, by year when "All years" is picked.
-  - Horizontal bar chart by rep; clicking a rep filters the dashboard.
-  - Rep scorecard table and monthly breakdown table.
-- **Orders tab:**
-  - "By order" view (grouped by Order #) and "By product line" view, with search, status and rep filters.
-  - Slide-over form with live P&L, "Save & add another product" (pre-fills order-level fields), and delete with an inline confirm.
-- **CSV:**
-  - Import finds the header row even with title rows above it.
-  - Headers are matched by label or alias. The old sheet's Sample, PMS, Brokerage and Supplier-fee columns are summed into `otherCosts`. If only "Customer Total Price (all-in)" is present, the unit price is derived from it.
-  - Export writes all columns, including calculated ones.
-- **Settings:** add or rename reps (a rename updates existing lines), tax and fee defaults, the customer-tax switch, and which statuses count as sales. The page also shows the formulas.
-- **Example data:** a banner with "Remove example orders", which deletes docs where `sample: true`.
-- **Themes:** light and dark via CSS tokens. Chart colors follow a CVD-checked categorical palette, assigned to reps in a fixed order.
-
-## Decisions (answered by the user, 2026-09-29)
-
-1. **Supplier tax is not recoverable.** It stays in Total cost; the `recoverSupplierTax` setting and toggle were removed.
-2. **Payment platform fee does not reduce gross profit.** It's out of Total cost and subtracted only in net profit.
-3. **Rep commission is a manually entered $ amount** per line. The %/type option and the settings default were removed (`commissionType` is ignored if present in old data).
-4. **Total sales includes customer tax**; the tax is deducted later, in net profit (`deductCustomerTax=true`).
-5. **Supplier tax is part of Total cost**, so it lowers gross profit.
-6. **Refunds count only on Cancelled orders** (full refund on cancellation); on any other status the Refund field is ignored.
-
-## Known gaps / next steps
-
-- Saving, editing and deleting were tested with the local shim. **CSV import has not been tried against a real export of the sheet**, and the live claude.ai page has not been tested by the user yet.
-- No live Google Sheets sync. Data moves only via CSV import and export. A real sync would need the Sheets API or Apps Script.
-- One currency (USD formatting), with no multi-currency support.
-- No auth or roles beyond what the Artifact share settings provide. Reps are names, not accounts.
-- Bulk import writes one document at a time. That's fine for hundreds of rows; the Artifact database is capped at about 25k documents.
-
-## If rebuilding outside claude.ai
-
-The only runtime dependency is `window.claude.use("db" | "downloads")`. Swap the shim in `src/index.html` for a real backend (Firestore maps almost 1:1; Supabase or SQLite also fit). Keep one row per product line, and derive every calculated field in `calc()` rather than storing it.
+- Phase 1 code is done and tested in demo mode as admin, sales lead and rep. **Not yet live.** Before pushing: (1) publish the new `firestore.rules` in the Firebase console, (2) enable Email/Password sign-in (Authentication → Sign-in method), (3) set the public-facing project name to "Aurora Promotions Dashboard" (it appears in password emails). The browser's Google session for the Firebase console had expired; the user must sign in themselves.
+- The repo rename to `dashboard` was blocked pending the user's explicit OK.
+- The session's files never got copied to `C:\Users\Dell\Desktop\Sales Navigator` (still empty); clone the repo there.

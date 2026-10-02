@@ -4,8 +4,8 @@
     {
       "name": "sales-navigator",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "tools/serve.ps1", "-Port", "8080"],
-      "port": 8080
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "tools/serve.ps1", "-Port", "8091"],
+      "port": 8091
     }
   ]
 }

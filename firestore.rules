@@ -1,15 +1,59 @@
 rules_version = '2';
-// Only signed-in Google accounts with an @aurorapromotions.ca email can read or write data.
-// This is what is published in the Firebase console (Firestore → Rules); keep the two in sync.
+// Aurora Promotions Dashboard security rules. Published in the Firebase console (Firestore → Rules);
+// keep this file and the console in sync.
+//
+// People live in members/{lowercase email}: {name, role: "admin"|"member", active, loginType, uid?, access: {tool: "limited"|"full"}}.
+// - The main admin (ihsan@aurorapromotions.ca, Google sign-in) is always an admin.
+// - Admins: full access to every tool and manage members.
+// - Members: per tool, "full" (team lead) or "limited" (own records, add/edit, no delete).
+// - Google logins must be verified Google accounts; email/password logins must be the exact account an admin created (uid).
 service cloud.firestore {
   match /databases/{database}/documents {
-    function allowed() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email.lower().matches('.*@aurorapromotions[.]ca$');
+    function email() { return request.auth.token.email.lower(); }
+    function memberPath() { return /databases/$(database)/documents/members/$(email()); }
+    function viaGoogle() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com' && request.auth.token.email_verified == true;
     }
-    match /{document=**} {
-      allow read, write: if allowed();
+    function isOwner() {
+      return request.auth != null && request.auth.token.email != null && viaGoogle()
+        && email() == 'ihsan@aurorapromotions.ca';
+    }
+    function m() { return get(memberPath()).data; }
+    function isMember() {
+      return request.auth != null && request.auth.token.email != null && exists(memberPath())
+        && m().active == true && (viaGoogle() || m().get('uid', '') == request.auth.uid);
+    }
+    function isAdmin() { return isOwner() || (isMember() && m().role == 'admin'); }
+    function level(tool) {
+      return isAdmin() ? 'full' : (isMember() ? m().get('access', {}).get(tool, 'none') : 'none');
+    }
+    function full(tool) { return level(tool) == 'full'; }
+    function limited(tool) { return level(tool) == 'limited'; }
+    function myName() { return m().name; }
+
+    match /members/{who} {
+      allow read: if isAdmin() || (isMember() && who == email());
+      // only admins manage people; only the main admin can change the main admin's record
+      allow create, update: if isAdmin() && (who != 'ihsan@aurorapromotions.ca' || isOwner())
+        && request.resource.data.role in ['admin', 'member'];
+      allow delete: if false;
+    }
+
+    // ---------- Sales Navigator ----------
+    match /orders/{id} {
+      allow read: if full('sales') || (limited('sales') && resource.data.salesRep == myName());
+      allow create: if full('sales') || (limited('sales') && request.resource.data.salesRep == myName());
+      allow update: if full('sales')
+        || (limited('sales') && resource.data.salesRep == myName() && request.resource.data.salesRep == myName());
+      allow delete: if full('sales');
+    }
+    match /settings/config {
+      allow read: if level('sales') != 'none';
+      allow write: if full('sales');
+    }
+    match /counters/orders {
+      allow read, create: if level('sales') != 'none';
+      allow update: if level('sales') != 'none' && request.resource.data.next > resource.data.next;
     }
   }
 }
