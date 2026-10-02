@@ -12,5 +12,5 @@ window.FIREBASE_CONFIG = {
 /* Gmail connection (Clients & Seasons → send from the rep's own company mailbox).
    OAuth client ID from Google Cloud → Google Auth Platform → Clients (an "Internal" app); not secret.
    Leave empty to keep the "Open in Gmail" button only. */
-window.GOOGLE_OAUTH_CLIENT_ID = "";
+window.GOOGLE_OAUTH_CLIENT_ID = "64929940126-o1ik5fa0e85n63avsq5n3sj1o957jbvb.apps.googleusercontent.com";
 window.WORKSPACE_DOMAIN = "aurorapromotions.ca";

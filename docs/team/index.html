@@ -89,7 +89,7 @@ function openForm(p){
       <label class="ap-field"><span>Name</span><input id="f-name" value="${esc(m.name)}" required autocomplete="off"><em class="hint">Shown across the dashboard, and used as their sales rep name.</em></label>
       <label class="ap-field"><span>Email</span><input id="f-email" type="email" value="${esc(m.email)}" ${isNew?"":"disabled"} required autocomplete="off"></label>
       ${isNew?`<fieldset><legend>How they sign in</legend>
-        <label class="radio"><input type="radio" name="login" value="google"><span><b>Google account</b><br><span class="hint">For @aurorapromotions.ca or any Gmail/Google address. They click "Sign in with Google".</span></span></label>
+        <label class="radio"><input type="radio" name="login" value="google"><span><b>Google account</b><br><span class="hint">For @aurorapromotions.ca company accounts only. They click "Sign in with Google".</span></span></label>
         <label class="radio"><input type="radio" name="login" value="password"><span><b>Email &amp; password</b><br><span class="hint">For any other email. They get an email with a link to set their own password.</span></span></label>
       </fieldset>`:`<p class="hint" style="margin:0">Signs in with: <b>${m.loginType==="password"?"email &amp; password":"Google"}</b></p>`}
       <fieldset><legend>Role</legend>
@@ -115,7 +115,7 @@ function openForm(p){
     document.querySelectorAll("#acc-set select").forEach(s=>{s.disabled=adm});$("#acc-set").style.opacity=adm?.55:1};
   document.querySelectorAll("input[name=role]").forEach(r=>r.onchange=syncAdmin);syncAdmin();
   if(isNew){const em=$("#f-email");const pick=()=>{if(!document.querySelector("input[name=login]:checked")||em.dataset.auto){
-      document.querySelector(`input[name=login][value=${/@(aurorapromotions\.ca|gmail\.com)$/i.test(em.value.trim())?"google":"password"}]`).checked=true;em.dataset.auto="1"}};
+      document.querySelector(`input[name=login][value=${/@aurorapromotions\.ca$/i.test(em.value.trim())?"google":"password"}]`).checked=true;em.dataset.auto="1"}};
     em.addEventListener("input",pick);document.querySelectorAll("input[name=login]").forEach(r=>r.onchange=()=>{delete em.dataset.auto});}
   if($("#fpw"))$("#fpw").onclick=async()=>{try{await APP.sendPasswordEmail(m.email);APP.toast(`Password email sent to ${m.email}`)}catch(e){$("#ferr").textContent="Couldn't send the email. Try again."}};
   setTimeout(()=>$("#f-name").focus(),50);
@@ -136,6 +136,8 @@ function openForm(p){
         if(PEOPLE.some(x=>x.email===email)){err("This email is already on the team.");btn.disabled=false;return}
         const login=(document.querySelector("input[name=login]:checked")||{}).value;
         if(!login){err("Choose how they sign in.");btn.disabled=false;return}
+        // Google sign-in is an internal (company-only) app, so other addresses must use email & password
+        if(login==="google"&&!/@aurorapromotions\.ca$/i.test(email)){err("Google sign-in only works for @aurorapromotions.ca accounts. Choose Email & password for this person.");btn.disabled=false;return}
         next.loginType=login;next.addedAt=next.updatedAt;next.addedBy=me;
         if(login==="password"){
           try{next.uid=await APP.createPasswordLogin(email)}
