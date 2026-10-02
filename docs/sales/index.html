@@ -955,6 +955,9 @@ function renderAll(){ORDERS.forEach(o=>o._c=calc(o));renderFilters();renderBanne
 
 // ---------- boot ----------
 setTab(["dash","customers","orders","settings"].includes(ui.tab)?ui.tab:"dash");
+// ?invoice=XYZ (e.g. from Projects) opens the Orders tab filtered to that invoice
+{const inv=new URLSearchParams(location.search).get("invoice");
+  if(inv){ui.search=inv;ui.oview="lines";$("#o-search").value=inv;history.replaceState(null,"",location.pathname);setTab("orders")}}
 (async()=>{
   db=window.claude?await window.claude.use("db").catch(()=>null):null;
   if(!db){dbState="off";loaded=true;renderAll();return}

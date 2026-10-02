@@ -32,7 +32,8 @@ service cloud.firestore {
     function myName() { return m().name; }
 
     match /members/{who} {
-      allow read: if isAdmin() || (isMember() && who == email());
+      // everyone on the team can see who's who (needed to assign tasks); only admins change it
+      allow read: if isAdmin() || isMember();
       // only admins manage people; only the main admin can change the main admin's record
       allow create, update: if isAdmin() && (who != 'ihsan@aurorapromotions.ca' || isOwner())
         && request.resource.data.role in ['admin', 'member'];
@@ -54,6 +55,32 @@ service cloud.firestore {
     match /counters/orders {
       allow read, create: if level('sales') != 'none';
       allow update: if level('sales') != 'none' && request.resource.data.next > resource.data.next;
+    }
+
+    // ---------- Projects ----------
+    // projects/{id} and tasks/{id} both carry `team` (member emails); limited people see only what they're on.
+    // Limited: add tasks for themselves, edit their own tasks (not reassign), comment on any task of their projects.
+    match /projects/{id} {
+      allow read: if full('projects') || (limited('projects') && email() in resource.data.team);
+      allow create, update, delete: if full('projects');
+    }
+    match /tasks/{id} {
+      allow read: if full('projects') || (limited('projects') && email() in resource.data.team);
+      allow create: if full('projects') || (limited('projects')
+        && request.resource.data.assignee == email()
+        && email() in request.resource.data.team
+        && request.resource.data.team == get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.team);
+      allow update: if full('projects') || (limited('projects') && email() in resource.data.team
+        && request.resource.data.team == resource.data.team
+        && request.resource.data.projectId == resource.data.projectId
+        && request.resource.data.assignee == resource.data.assignee
+        && (resource.data.assignee == email()
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments', 'updatedAt'])));
+      allow delete: if full('projects');
+    }
+    match /settings/projects {
+      allow read: if level('projects') != 'none';
+      allow write: if full('projects');
     }
   }
 }

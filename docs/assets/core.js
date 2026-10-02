@@ -10,7 +10,7 @@ const TOOLS=[
   {k:"sales",l:"Sales Navigator",href:"sales/",desc:"Orders, sales and profit by month, rep and customer.",ready:true},
   {k:"leads",l:"Leads",href:"leads/",desc:"Leads from GoHighLevel, reviewed emails and texts, follow-up reminders.",ready:false},
   {k:"acceptance",l:"Order Acceptance",href:"acceptance/",desc:"Order summary, Terms and Conditions, client acceptance and invoices.",ready:false},
-  {k:"projects",l:"Projects",href:"projects/",desc:"Projects and tasks, assignments and progress.",ready:false},
+  {k:"projects",l:"Projects",href:"projects/",desc:"One project per client order: tasks, assignments, due dates and progress.",ready:true},
   {k:"handbook",l:"Handbook",href:"handbook/",desc:"How the dashboard works, how to change it, move it to your own website, or rebuild it.",ready:true,readOnly:true},
 ];
 const LEVELS={none:"No access",limited:"Limited",full:"Full"};
@@ -158,7 +158,7 @@ function demoDb(){
     delete:async()=>{delete coll(c)[id];persist();notify()},
     onSnapshot:(cb)=>watch(()=>snapDoc(c,id),cb)}}
   function query(c,filters){
-    const snap=()=>{const docs=Object.keys(coll(c)).filter(id=>filters.every(([f,,v])=>coll(c)[id][f]===v)).map(id=>snapDoc(c,id));return {docs,size:docs.length,empty:!docs.length,forEach:fn=>docs.forEach(fn)}};
+    const snap=()=>{const docs=Object.keys(coll(c)).filter(id=>filters.every(([f,op,v])=>op==="array-contains"?Array.isArray(coll(c)[id][f])&&coll(c)[id][f].includes(v):coll(c)[id][f]===v)).map(id=>snapDoc(c,id));return {docs,size:docs.length,empty:!docs.length,forEach:fn=>docs.forEach(fn)}};
     return {where:(f,op,v)=>query(c,[...filters,[f,op,v]]),doc:id=>docRef(c,id||newId()),get:async()=>snap(),onSnapshot:(cb)=>watch(snap,cb)};
   }
   return {store,persist,collection:c=>query(c,[]),doc:p=>{const [c,id]=p.split("/");return docRef(c,id)},
@@ -172,8 +172,8 @@ async function startDemo(resolve){
   if(!db.store.members||!Object.keys(db.store.members).length){
     db.store.members={
       [OWNER]:{name:"Ihsan",email:OWNER,role:"admin",active:true,loginType:"google",access:{}},
-      "lead@example.com":{name:"Sam (sales lead)",email:"lead@example.com",role:"member",active:true,loginType:"password",uid:"demo-lead",access:{sales:"full"}},
-      "rep@example.com":{name:"Rep 1",email:"rep@example.com",role:"member",active:true,loginType:"password",uid:"demo-rep",access:{sales:"limited"}},
+      "lead@example.com":{name:"Sam (sales lead)",email:"lead@example.com",role:"member",active:true,loginType:"password",uid:"demo-lead",access:{sales:"full",projects:"full"}},
+      "rep@example.com":{name:"Rep 1",email:"rep@example.com",role:"member",active:true,loginType:"password",uid:"demo-rep",access:{sales:"limited",projects:"limited"}},
     };db.persist();
   }
   if(qs.has("seed")){

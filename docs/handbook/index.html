@@ -52,13 +52,14 @@
   <a href="#access">3. Sign-in and access</a>
   <a href="#people">4. Managing people</a>
   <a href="#sales">5. Sales Navigator logic</a>
-  <a href="#changes">6. Making changes</a>
-  <a href="#domain">7. Moving to aurorapromotions.ca</a>
-  <a href="#rebuild">8. Rebuilding from scratch</a>
-  <a href="#backup">9. Backups and copies</a>
-  <a href="#costs">10. Costs and limits</a>
-  <a href="#trouble">11. Troubleshooting</a>
-  <a href="#history">12. History</a>
+  <a href="#projects">6. Projects logic</a>
+  <a href="#changes">7. Making changes</a>
+  <a href="#domain">8. Moving to aurorapromotions.ca</a>
+  <a href="#rebuild">9. Rebuilding from scratch</a>
+  <a href="#backup">10. Backups and copies</a>
+  <a href="#costs">11. Costs and limits</a>
+  <a href="#trouble">12. Troubleshooting</a>
+  <a href="#history">13. History</a>
 </nav>
 <article class="doc">
 
@@ -68,7 +69,7 @@
 <tr><td><b>Sales Navigator</b></td><td>Order log and sales dashboard: sales, gross and net profit by year, month, sales rep and customer.</td><td>Live</td></tr>
 <tr><td><b>Team &amp; Access</b></td><td>Admins add people, choose how they sign in and which tools they can use.</td><td>Live</td></tr>
 <tr><td><b>Handbook</b></td><td>This page.</td><td>Live</td></tr>
-<tr><td><b>Projects</b></td><td>Projects and tasks assigned to team members, with progress tracking.</td><td>Planned</td></tr>
+<tr><td><b>Projects</b></td><td>One project per client order (linked by Invoice #): tasks, assignments, due dates, progress and comments.</td><td>Live</td></tr>
 <tr><td><b>Leads</b></td><td>Leads from GoHighLevel (Facebook, Google), emails and texts reviewed by a rep before sending, follow-up reminders every 2 days.</td><td>Planned</td></tr>
 <tr><td><b>Order Acceptance</b></td><td>Client gets a link with the order summary, Terms and Conditions and a Stripe/Square invoice, and accepts online.</td><td>Planned</td></tr>
 </tbody></table>
@@ -90,6 +91,7 @@
 <tr><td><code>docs/assets/core.css</code></td><td>Shared colours (light and dark), top bar, buttons.</td></tr>
 <tr><td><code>docs/firebase-config.js</code></td><td>Which Firebase project to use. Not secret; every Firebase website includes it.</td></tr>
 <tr><td><code>docs/sales/index.html</code></td><td>Sales Navigator (everything in one file).</td></tr>
+<tr><td><code>docs/projects/index.html</code></td><td>Projects (everything in one file).</td></tr>
 <tr><td><code>docs/team/index.html</code></td><td>Team &amp; Access.</td></tr>
 <tr><td><code>docs/handbook/index.html</code></td><td>This Handbook.</td></tr>
 <tr><td><code>firestore.rules</code></td><td>Copy of the security rules published in Firebase.</td></tr>
@@ -147,7 +149,22 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
 <h3>Import and export</h3>
 <p>Orders → Import CSV accepts a CSV saved from Google Sheets. Columns are matched by header name (old names like "Order #" or "PO #" are understood as Invoice #). Export CSV downloads every column, including the calculated ones.</p>
 
-<h2 id="changes">6. Making changes</h2>
+<h2 id="projects">6. Projects logic</h2>
+<p>At Aurora every project is a <b>client order</b>, so a project is linked to an <b>Invoice #</b> from Sales Navigator. Picking the invoice fills in the client company, contact, sales rep and in-hands date (used as the due date).</p>
+<ul>
+  <li><b>Project:</b> name, invoice #, client, status (editable list in Projects → Settings; a status containing "Done" or "Cancel" counts as finished), priority, start and due dates, a <b>project lead</b>, the <b>team</b>, and notes.</li>
+  <li><b>Standard steps:</b> a new project can start with the standard tasks (by default: artwork &amp; proof approval, place order with supplier, production, shipping, delivered &amp; in-hands confirmed), assigned to the lead. Edit the list in Projects → Settings.</li>
+  <li><b>Task:</b> title, assigned person, due date, priority, status (<i>To do → In progress → Review → Done</i>), progress %, details and comments. Marking a task Done sets progress to 100%. A task is <b>late</b> when its due date has passed and it isn't done.</li>
+  <li><b>Views:</b> <i>My tasks</i> (your tasks grouped into Late / This week / Later / No date, with a "New" mark on tasks assigned since your last visit), <i>Board</i> (drag cards between status columns), <i>Projects</i> (progress bar = done tasks ÷ all tasks).</li>
+</ul>
+<table><thead><tr><th>Access</th><th>In Projects they can…</th></tr></thead><tbody>
+<tr><td><b>Full</b> (admins, project leads)</td><td>See every project; create, edit and delete projects and tasks; assign anyone (assigning someone outside the team adds them to it); change Projects settings.</td></tr>
+<tr><td><b>Limited</b> (team members)</td><td>See only projects they're on and their tasks; add tasks for themselves; change their own tasks (not reassign them); comment on any task in their projects. No deleting.</td></tr>
+</tbody></table>
+<p>Behind the scenes each project and task stores its <code>team</code> (email addresses), and the security rules only let a Limited person read records whose team includes them. When a project's team changes, its tasks are updated to match.</p>
+<p>From a project, <b>Open invoice in Sales Navigator</b> jumps to that invoice's product lines (for people with Sales Navigator access).</p>
+
+<h2 id="changes">7. Making changes</h2>
 <h3>The easy way: ask Claude</h3>
 <ol>
   <li>Open the Claude desktop app → <b>Code</b> → start a session in the folder <code>Desktop\Sales Navigator</code>.</li>
@@ -169,7 +186,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li>Add a block for its data in <code>firestore.rules</code> using <code>full('&lt;key&gt;')</code> and <code>limited('&lt;key&gt;')</code>, and publish it.</li>
 </ol>
 
-<h2 id="domain">7. Moving to aurorapromotions.ca</h2>
+<h2 id="domain">8. Moving to aurorapromotions.ca</h2>
 <p>The data stays in Firebase whichever option you choose; only the address of the pages changes.</p>
 <h3>Option A (recommended): your own address, still hosted by GitHub</h3>
 <ol>
@@ -187,7 +204,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li>Optional: turn off GitHub Pages (repository → Settings → Pages → Source: None). Keep the GitHub repository as the master copy, and re-upload changed files to your server after each change.</li>
 </ol>
 
-<h2 id="rebuild">8. Rebuilding from scratch</h2>
+<h2 id="rebuild">9. Rebuilding from scratch</h2>
 <p>Use this if the project ever needs to be set up again under new accounts. You need a Google account (for Firebase) and a GitHub account (or your own hosting).</p>
 <ol>
   <li><b>Get the code:</b> the GitHub repository <code>aurorapromotions/dashboard</code>, or the local copy on drive D: or the Desktop.</li>
@@ -201,13 +218,13 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li><b>Bring data across:</b> in the old dashboard, Sales Navigator → Orders → <b>Export CSV</b>; in the new one, <b>Import CSV</b>. Re-enter Settings (tax and fee defaults, dropdown lists) and people by hand.</li>
 </ol>
 
-<h2 id="backup">9. Backups and copies</h2>
+<h2 id="backup">10. Backups and copies</h2>
 <ul>
   <li><b>Code:</b> online in GitHub (<code>aurorapromotions/dashboard</code>, with every past version), the working copy in <code>Desktop\Sales Navigator</code>, and a backup copy on drive D: (<code>D:\Aurora Promotions Dashboard\Project</code>). To refresh it, double-click <code>Update this copy from GitHub.bat</code> in <code>D:\Aurora Promotions Dashboard</code>.</li>
   <li><b>Data:</b> lives in Firebase. Download a copy regularly with Sales Navigator → Orders → <b>Export CSV</b> and save it in <code>D:Aurora Promotions DashboardData backups</code>. Firebase's own automatic exports need the paid Blaze plan.</li>
 </ul>
 
-<h2 id="costs">10. Costs and limits</h2>
+<h2 id="costs">11. Costs and limits</h2>
 <ul>
   <li><b>GitHub Pages:</b> free. The repository is public, so the <i>code</i> can be seen by anyone; your <i>data</i> is not in it.</li>
   <li><b>Firebase (Spark, free plan):</b> about 1 GB of data, 50,000 reads and 20,000 writes per day, unlimited Google/email logins. Far more than a small team uses. If you ever outgrow it, the Blaze plan charges only for use above these amounts.</li>
@@ -215,7 +232,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
 </ul>
 <div class="box warn"><b>Never put secret keys in <code>docs/</code>.</b> Stripe, Square, GoHighLevel or Anthropic keys must go only into the connector service (planned), never into the website files, because those are public.</div>
 
-<h2 id="trouble">11. Troubleshooting</h2>
+<h2 id="trouble">12. Troubleshooting</h2>
 <table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody>
 <tr><td>"… doesn't have access to the dashboard"</td><td>Add them on Team &amp; Access, or tick <b>Can sign in</b>.</td></tr>
 <tr><td>"This email/password login isn't linked"</td><td>The login wasn't created from the Team page. Ask an admin to check the person's record; adding them with Google sign-in also works if it's a Google address.</td></tr>
@@ -226,11 +243,12 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
 <tr><td>Changes don't show on the website</td><td>Wait a minute after uploading, then reload with Ctrl+F5.</td></tr>
 </tbody></table>
 
-<h2 id="history">12. History</h2>
+<h2 id="history">13. History</h2>
 <ul>
   <li><b>29 Sep 2026:</b> first Sales Navigator, built in a Claude chat (claude.ai), replacing the manual Google Sheet. Moved to Claude Code, GitHub Pages and Firebase the same day. Profit rules agreed: supplier tax is a cost, platform fee and commission only lower net profit, refunds only on cancelled orders, total sales includes customer tax.</li>
   <li><b>2 Oct 2026:</b> became the Aurora Promotions Dashboard: shared sign-in (Google or email/password), Team &amp; Access with Admin / Team lead / Member levels, security rules. Sales Navigator gained the Customers report, editable dropdown lists, and per-order delivery days.</li>
   <li><b>2 Oct 2026:</b> Invoice # replaces Order # and PO #. Handbook added. Local backup copy on drive D:.</li>
+  <li><b>2 Oct 2026:</b> Projects tool: one project per client order, standard steps, tasks with progress and comments, My tasks / Board / Projects views. Team members can now see each other's names (needed to assign tasks).</li>
 </ul>
 </article>
 </div>
