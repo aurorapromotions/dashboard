@@ -71,7 +71,7 @@
 <tr><td><b>Sales Navigator</b></td><td>Order log and sales dashboard: sales, gross and net profit by year, month, sales rep and customer.</td><td>Live</td></tr>
 <tr><td><b>Team &amp; Access</b></td><td>Admins add people, choose how they sign in and which tools they can use.</td><td>Live</td></tr>
 <tr><td><b>Handbook</b></td><td>This page.</td><td>Live</td></tr>
-<tr><td><b>Projects</b></td><td>One project per client order (linked by Invoice #): tasks, assignments, due dates, progress and comments.</td><td>Live</td></tr>
+<tr><td><b>Projects</b></td><td>Internal team projects and tasks: assignments, due dates, progress and comments (not linked to clients).</td><td>Live</td></tr>
 <tr><td><b>Clients &amp; Seasons</b></td><td>Every client contact (built from orders), seasonal outreach with your website catalog links, emails opened in the rep's company Gmail/Outlook, follow-up reminders after 4 days without a reply.</td><td>Live</td></tr>
 <tr><td><b>Order Acceptance</b></td><td>Versioned Terms &amp; Conditions; clients accept orders on a private page and pay with Stripe or Square.</td><td>Live</td></tr>
 </tbody></table>
@@ -154,19 +154,18 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
 <p>Orders → Import CSV accepts a CSV saved from Google Sheets. Columns are matched by header name (old names like "Order #" or "PO #" are understood as Invoice #). Export CSV downloads every column, including the calculated ones.</p>
 
 <h2 id="projects">6. Projects logic</h2>
-<p>At Aurora every project is a <b>client order</b>, so a project is linked to an <b>Invoice #</b> from Sales Navigator. Picking the invoice fills in the client company, contact, sales rep and in-hands date (used as the due date).</p>
+<p>Projects is for the <b>internal team</b>: organising and assigning work such as a trade show, a website update, catalogue preparation or office tasks. It is not linked to clients or invoices.</p>
 <ul>
-  <li><b>Project:</b> name, invoice #, client, status (editable list in Projects → Settings; a status containing "Done" or "Cancel" counts as finished), priority, start and due dates, a <b>project lead</b>, the <b>team</b>, and notes.</li>
-  <li><b>Standard steps:</b> a new project can start with the standard tasks (by default: artwork &amp; proof approval, place order with supplier, production, shipping, delivered &amp; in-hands confirmed), assigned to the lead. Edit the list in Projects → Settings.</li>
+  <li><b>Project:</b> name, status (editable list in Projects → Settings; a status containing "Done" or "Cancel" counts as finished), priority, start and due dates, a <b>project lead</b>, the <b>team</b>, and notes.</li>
+  <li><b>Standard tasks</b> (optional): a list in Projects → Settings that can be added to a new project in one click, assigned to the lead.</li>
   <li><b>Task:</b> title, assigned person, due date, priority, status (<i>To do → In progress → Review → Done</i>), progress %, details and comments. Marking a task Done sets progress to 100%. A task is <b>late</b> when its due date has passed and it isn't done.</li>
   <li><b>Views:</b> <i>My tasks</i> (your tasks grouped into Late / This week / Later / No date, with a "New" mark on tasks assigned since your last visit), <i>Board</i> (drag cards between status columns), <i>Projects</i> (progress bar = done tasks ÷ all tasks).</li>
 </ul>
 <table><thead><tr><th>Access</th><th>In Projects they can…</th></tr></thead><tbody>
-<tr><td><b>Full</b> (admins, project leads)</td><td>See every project; create, edit and delete projects and tasks; assign anyone (assigning someone outside the team adds them to it); change Projects settings.</td></tr>
+<tr><td><b>Full</b> (admins, team leads)</td><td>See every project; create, edit and delete projects and tasks; assign anyone (assigning someone outside the team adds them to it); change Projects settings.</td></tr>
 <tr><td><b>Limited</b> (team members)</td><td>See only projects they're on and their tasks; add tasks for themselves; change their own tasks (not reassign them); comment on any task in their projects. No deleting.</td></tr>
 </tbody></table>
-<p>Behind the scenes each project and task stores its <code>team</code> (email addresses), and the security rules only let a Limited person read records whose team includes them. When a project's team changes, its tasks are updated to match.</p>
-<p>From a project, <b>Open invoice in Sales Navigator</b> jumps to that invoice's product lines (for people with Sales Navigator access).</p>
+<p>Behind the scenes each project and task stores its <code>team</code> (email addresses), and the security rules only let a Limited person read records whose team includes them.</p>
 
 <h2 id="clients">7. Clients &amp; Seasons</h2>
 <p>For now the dashboard focuses on <b>existing clients</b>: every 1.5–2 months there is a new season (golf, holidays, back to school…), and each rep reaches out to their clients with the season's catalog link from the Aurora website, then follows up.</p>
@@ -227,10 +226,10 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
 <p class="hint">Payment status is marked by hand for now. Automatic "paid" from Stripe/Square needs a small server holding their secret keys (see Costs).</p>
 <h3>How the tools connect</h3>
 <table><thead><tr><th>From</th><th>You can…</th></tr></thead><tbody>
-<tr><td><b>Home</b></td><td>See today's numbers: sales this month, your follow-ups due, your open and late tasks, the current season. Each card opens its tool.</td></tr>
-<tr><td><b>Sales Navigator</b></td><td>See each invoice's project status in the <i>By order</i> view, or click <b>+ Project</b> to start one with the invoice filled in. In Customers, open a contact's <b>Client page</b>.</td></tr>
-<tr><td><b>Projects</b></td><td>Pick the invoice to fill in client details; <b>Open invoice in Sales Navigator</b>; <b>Open client</b>.</td></tr>
-<tr><td><b>Clients &amp; Seasons</b></td><td>On a client: their invoices (links to Sales Navigator) and projects (links to Projects). Seasons show <b>Sales after outreach</b>: orders from that season's clients from the outreach start until 60 days after it ends (before tax). Marking a client <b>Ordered</b> can record the invoice #, which then links to it.</td></tr>
+<tr><td><b>Home</b></td><td>See today's numbers: sales this month, your follow-ups due, your open and late (internal) tasks, the current season. Each card opens its tool.</td></tr>
+<tr><td><b>Sales Navigator</b></td><td>See each invoice's acceptance status in the <i>By order</i> view, or click <b>Send</b> to send it for acceptance. In Customers, open a contact's <b>Client page</b>.</td></tr>
+<tr><td><b>Projects</b></td><td>Internal team projects and tasks: assignments, due dates, progress and comments (not linked to clients).</td><td>Live</td></tr>
+<tr><td><b>Clients &amp; Seasons</b></td><td>On a client: their invoices (links to Sales Navigator). Seasons show <b>Sales after outreach</b>: orders from that season's clients from the outreach start until 60 days after it ends (before tax). Marking a client <b>Ordered</b> can record the invoice #, which then links to it.</td></tr>
 <tr><td><b>Team &amp; Access</b></td><td>A person's name is their sales rep name everywhere (orders, client owner, outreach).</td></tr>
 </tbody></table>
 <p>Links only appear for people who can use the other tool.</p>
@@ -326,6 +325,7 @@ Net profit       = Gross profit − Rep commission ($) − Platform fee − Cust
   <li><b>2 Oct 2026:</b> Approve &amp; send from the rep's own company Gmail, with automatic reply detection. Rule: no email reaches a client without the approval of that client's own sales rep; admins and leads can only prepare drafts.</li>
   <li><b>2 Oct 2026:</b> Tools connected (home Today cards, invoice ↔ project ↔ client links, season sales). Order Acceptance started with versioned Terms &amp; Conditions including shipping and force majeure.</li>
   <li><b>2 Oct 2026:</b> Client acceptance: private accept page with order summary + terms, Stripe or Square payment links, rep-approved sending, Mark as paid.</li>
+  <li><b>2 Oct 2026:</b> Projects changed to internal team work only (no client or invoice links), as requested.</li>
 </ul>
 </article>
 </div>

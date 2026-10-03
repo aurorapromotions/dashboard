@@ -136,7 +136,7 @@ const DEF_BODY="Hi {first_name},\n\n{season} is coming up, and we've put togethe
 const ST={todo:"To contact",sent:"Sent · waiting",replied:"Replied",quote:"Quote requested",ordered:"Ordered",not_interested:"Not interested",no_reply:"No reply",stopped:"Follow-ups off",skipped:"Skipped"};
 const OUTCOMES=["replied","quote","ordered","not_interested","stopped","skipped"];
 
-let PROJS=[],CL={},SEAS=[],OUT={},ORD=[],SET=structuredClone(DEF),PEOPLE=[],loaded={cl:false,se:false,out:false,ord:SALES==="none"};
+let CL={},SEAS=[],OUT={},ORD=[],SET=structuredClone(DEF),PEOPLE=[],loaded={cl:false,se:false,out:false,ord:SALES==="none"};
 let SALESCFG={quote:"Quote",cancelled:"Cancelled"};
 const ui={view:"reach",season:"",owner:FULL?"all":MYNAME,tag:"all",q:""};
 try{Object.assign(ui,JSON.parse(localStorage.getItem("cs-ui")||"{}"))}catch(e){}
@@ -449,15 +449,11 @@ async function checkReplies(interactive){
 }
 
 
-// links to the client's invoices (Sales Navigator) and projects (Projects)
+// links to the client's invoices in Sales Navigator
 function invoicesOf(st){
   if(!st)return [];const m=new Map();
   st.lines.forEach(o=>{const k=String(o.orderNumber||"").trim();if(k&&!m.has(k.toUpperCase()))m.set(k.toUpperCase(),{inv:k,date:o.orderDate||""})});
   return [...m.values()].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
-}
-function projectsOf(c,st){
-  const invs=new Set(invoicesOf(st).map(x=>x.inv.toUpperCase())),em=String(c.email||"").toLowerCase();
-  return PROJS.filter(p=>invs.has(String(p.invoiceNumber||"").toUpperCase())||(em&&String(p.clientEmail||"").toLowerCase()===em));
 }
 // sales from a season: counted orders by its clients from the outreach start until 60 days after it ends (before tax)
 function seasonSales(s,clients){
@@ -484,7 +480,6 @@ function openClient(cid){
       <div class="kpi"><div class="l">First order</div><div class="v" style="font-size:16px">${fmtD(st.firstOrder)}</div></div><div class="kpi"><div class="l">Last order</div><div class="v" style="font-size:16px">${fmtD(st.lastOrder)}</div></div></div>
       <p class="hint" style="margin:8px 0 0">Usually orders in: ${st.months.map(m=>MONTHS[m-1]).join(", ")||"—"}</p>
       ${invoicesOf(st).length?`<p style="margin:8px 0 0;font-size:13px">Invoices: ${invoicesOf(st).map(x=>`<a href="../sales/?invoice=${encodeURIComponent(x.inv)}">${esc(x.inv)}</a> <span class="hint">${fmtD(x.date)}</span>`).join(" · ")}</p>`:""}</fieldset>`:""}
-    ${!isNew&&projectsOf(c,st).length?`<fieldset><legend>Projects</legend><div class="hist">${projectsOf(c,st).map(p=>`<div><a href="../projects/?project=${encodeURIComponent(p._id)}"><b>${esc(p.name)}</b></a> · ${esc(p.status||"")}${p.invoiceNumber?` · ${esc(p.invoiceNumber)}`:""}${p.dueDate?` · due ${fmtD(p.dueDate)}`:""}</div>`).join("")}</div></fieldset>`:""}
     ${!isNew?`<fieldset><legend>Seasons</legend>${seasonsHist.length?`<div class="hist">${seasonsHist.map(({o,s})=>`<div><b>${esc(s.name)}</b> · <span class="pill ${outStatus(o)}">${ST[o.status]||o.status}</span>${o.sentAt?` · emailed ${fmtD(o.sentAt.slice(0,10))}`:""}</div>`).join("")}</div>`:'<p class="hint" style="margin:0">Not contacted in any season yet.</p>'}
       ${canEdit&&active.length?`<div class="sendrow" style="margin-top:10px">${sel("c-addseason",active.map(s=>[s._id,s.name]),ui.season)}<button class="ap-btn ap-small" id="c-add">Add to this season's list</button></div>`:""}</fieldset>`:""}`,
     (canEdit?`<button class="ap-btn ap-primary" id="c-save">${isNew?"Add client":"Save"}</button>`:"")+'<button class="ap-btn" id="c-close">Close</button>'+(FULL&&!isNew&&!c.virtual?'<span class="spacer"></span><button class="ap-btn ap-danger" id="c-del">Delete client</button>':""));
@@ -560,8 +555,6 @@ db.collection("members").onSnapshot(snap=>{
   PEOPLE=snap.docs.map(d=>Object.assign({},d.data(),{email:d.id})).filter(x=>x.active===true&&(x.role==="admin"||["limited","full"].includes((x.access||{}).sales)||["limited","full"].includes((x.access||{}).clients)))
     .map(x=>({email:x.email,name:x.name||x.email}));render()},()=>{});
 db.doc("settings/clients").onSnapshot(s=>{const d=s.exists?s.data():{};SET={...DEF,...d,types:d.types&&d.types.length?d.types:DEF.types,tags:Array.isArray(d.tags)?d.tags:DEF.tags};render()},()=>{});
-// projects, to show a client's projects (only for people with Projects access)
-if(APP.level("projects")!=="none")(APP.level("projects")==="full"?db.collection("projects"):db.collection("projects").where("team","array-contains",me.email)).onSnapshot(s=>{PROJS=s.docs.map(d=>({...d.data(),_id:d.id}))},()=>{});
 // ?client=<key> opens that client (links from Sales Navigator and Projects)
 let clientParam=new URLSearchParams(location.search).get("client");
 function openParamClient(){if(!clientParam||!loaded.cl||!loaded.ord)return;const k=clientParam;clientParam=null;history.replaceState(null,"",location.pathname);

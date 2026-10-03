@@ -10,7 +10,7 @@ const TOOLS=[
   {k:"sales",l:"Sales Navigator",href:"sales/",desc:"Orders, sales and profit by month, rep and customer.",ready:true},
   {k:"clients",l:"Clients & Seasons",href:"clients/",desc:"Your clients, seasonal outreach (golf, holidays…) with catalog links, and follow-up reminders.",ready:true},
   {k:"acceptance",l:"Order Acceptance",href:"acceptance/",desc:"Terms & Conditions (versioned, printable). Next: clients accept orders online with the invoice.",ready:true},
-  {k:"projects",l:"Projects",href:"projects/",desc:"One project per client order: tasks, assignments, due dates and progress.",ready:true},
+  {k:"projects",l:"Projects",href:"projects/",desc:"Internal team projects and tasks: assign work, due dates and progress.",ready:true},
   {k:"handbook",l:"Handbook",href:"handbook/",desc:"How the dashboard works, how to change it, move it to your own website, or rebuild it.",ready:true,readOnly:true},
 ];
 const LEVELS={none:"No access",limited:"Limited",full:"Full"};
